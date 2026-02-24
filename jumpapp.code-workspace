@@ -1,0 +1,19 @@
+{
+    "folders": [
+        {
+            "path": "jumpapp-bead-classifier"
+        }
+    ],
+    "settings": {
+        "jumpapp.root": "${workspaceFolder:jumpapp-bead-classifier}",
+        "files.exclude": {
+            "**/__pycache__": true,
+            "**/.DS_Store": true
+        },
+        "python.analysis.extraPaths": [
+            "${workspaceFolder:jumpapp-bead-classifier}/endpoints",
+            "${workspaceFolder:jumpapp-bead-classifier}/server"
+        ],
+        "python.defaultInterpreterPath": "/usr/bin/python3"
+    }
+}

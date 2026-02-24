@@ -1,0 +1,74 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "BeadRecord",
+  "description": "Schema for a single entry in the bead data lake.",
+  "type": "object",
+  "required": ["bead_id", "name"],
+  "properties": {
+    "bead_id": {
+      "type": "string",
+      "description": "Human-readable unique identifier, e.g. round-red-glass-001"
+    },
+    "name": {
+      "type": "string",
+      "description": "Display name of the bead"
+    },
+    "color": {
+      "type": "string",
+      "description": "Primary colour of the bead"
+    },
+    "finish": {
+      "type": "string",
+      "description": "Surface finish, e.g. glossy, matte, transparent, metallic"
+    },
+    "shape": {
+      "type": "string",
+      "description": "Bead shape, e.g. round, faceted, tube, flat, bicone"
+    },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Arbitrary extra tags for filtering"
+    },
+    "focal_bead": {
+      "type": "boolean",
+      "default": false,
+      "description": "True if this bead is a focal bead (the central design element of a piece)"
+    },
+    "is_3d": {
+      "type": "boolean",
+      "default": false,
+      "description": "True if the focal bead is a 3D figurine; false if it is a flat bead (~5\u20136 mm thick) with a character printed/moulded on both faces"
+    },
+    "focal_description": {
+      "type": "string",
+      "description": "Description specific to this focal bead; rare but not unique across beads"
+    },
+    "images": {
+      "type": "array",
+      "description": "One or more reference images",
+      "items": {
+        "type": "object",
+        "required": ["data", "mime_type"],
+        "properties": {
+          "data": {
+            "type": "string",
+            "description": "Base64-encoded image bytes"
+          },
+          "mime_type": {
+            "type": "string",
+            "enum": ["image/jpeg", "image/png", "image/webp"]
+          }
+        }
+      }
+    },
+    "embeddings": {
+      "type": "array",
+      "description": "ResNet-50 feature vectors (2048-dim, L2-normalised), one per reference image",
+      "items": {
+        "type": "array",
+        "items": { "type": "number" }
+      }
+    }
+  }
+}

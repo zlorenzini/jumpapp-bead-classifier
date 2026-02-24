@@ -3,167 +3,670 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>JumpApp</title>
+  <title>Bead Classifier</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; }
+
+    :root {
+      --bg:        #0f0f11;
+      --surface:   #1a1a1f;
+      --border:    #2e2e36;
+      --text:      #e8e8ec;
+      --muted:     #888;
+      --accent:    #5b6af0;
+      --accent-hv: #4a59e0;
+      --success:   #4caf50;
+      --error:     #f44336;
+      --warn:      #ff9800;
+    }
 
     body {
       margin: 0;
       font-family: system-ui, sans-serif;
-      background: #0f0f11;
-      color: #e8e8ec;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 2rem 1rem;
-      min-height: 100vh;
+      padding: 1.5rem 1rem 3rem;
     }
 
-    h1 { margin-bottom: 0.25rem; font-size: 1.5rem; }
-    p.subtitle { color: #888; margin-top: 0; margin-bottom: 2rem; font-size: 0.9rem; }
-
-    .card {
-      background: #1a1a1f;
-      border: 1px solid #2e2e36;
-      border-radius: 12px;
-      padding: 1.5rem;
+    /* ── header ─────────────────────────────────────── */
+    header {
       width: 100%;
-      max-width: 540px;
+      max-width: 720px;
+      margin-bottom: 1.25rem;
+    }
+    header h1 { margin: 0 0 0.15rem; font-size: 1.4rem; }
+    .status-row { display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; color: var(--muted); }
+    .dot { width: 9px; height: 9px; border-radius: 50%; background: #555; flex-shrink: 0; }
+    .dot.ok    { background: var(--success); }
+    .dot.error { background: var(--error); }
+    .badge {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 0 0.5rem;
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+    .badge.on { border-color: var(--accent); color: var(--accent); }
+
+    /* ── tabs ────────────────────────────────────────── */
+    .tabs {
+      width: 100%;
+      max-width: 720px;
+      display: flex;
+      gap: 0.25rem;
+      margin-bottom: 1rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .tab-btn {
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: var(--muted);
+      padding: 0.5rem 1rem;
+      font-size: 0.9rem;
+      cursor: pointer;
+      margin-bottom: -1px;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .tab-btn.active { color: var(--text); border-bottom-color: var(--accent); }
+    .tab-btn:hover { color: var(--text); }
+
+    .tab-panel { display: none; width: 100%; max-width: 720px; }
+    .tab-panel.active { display: block; }
+
+    /* ── card ────────────────────────────────────────── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem 1.5rem;
       margin-bottom: 1rem;
     }
+    .card-title { font-size: 0.8rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 1rem; }
 
-    label { display: block; margin-bottom: 0.4rem; font-size: 0.85rem; color: #aaa; }
-
-    textarea {
+    /* ── form controls ───────────────────────────────── */
+    label { display: block; margin-bottom: 0.35rem; font-size: 0.82rem; color: var(--muted); }
+    .field { margin-bottom: 0.9rem; }
+    input[type="text"], input[type="number"], select, textarea {
       width: 100%;
       background: #111115;
-      border: 1px solid #2e2e36;
+      border: 1px solid var(--border);
       border-radius: 8px;
-      color: #e8e8ec;
-      padding: 0.75rem;
+      color: var(--text);
+      padding: 0.6rem 0.75rem;
       font-size: 0.9rem;
-      resize: vertical;
-      min-height: 80px;
     }
+    textarea { resize: vertical; min-height: 70px; }
+    input[type="text"]:focus,
+    input[type="number"]:focus,
+    select:focus,
+    textarea:focus { outline: none; border-color: var(--accent); }
 
-    button {
-      margin-top: 1rem;
-      width: 100%;
-      padding: 0.65rem;
-      background: #5b6af0;
-      color: #fff;
-      border: none;
-      border-radius: 8px;
-      font-size: 0.95rem;
-      cursor: pointer;
+    .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+    .row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.75rem; }
+
+    /* ── buttons ─────────────────────────────────────── */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem;
+      padding: 0.6rem 1.1rem;
+      border: none; border-radius: 8px;
+      font-size: 0.9rem; cursor: pointer;
       transition: background 0.15s;
     }
-    button:hover { background: #4a59e0; }
-    button:disabled { background: #333; cursor: not-allowed; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-primary  { background: var(--accent); color: #fff; }
+    .btn-primary:not(:disabled):hover  { background: var(--accent-hv); }
+    .btn-danger   { background: #3b1212; color: #f87171; border: 1px solid #5a1f1f; }
+    .btn-danger:not(:disabled):hover   { background: #4e1919; }
+    .btn-ghost    { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+    .btn-ghost:not(:disabled):hover    { color: var(--text); border-color: #555; }
+    .btn-full { width: 100%; margin-top: 0.75rem; }
 
-    #output {
-      white-space: pre-wrap;
-      word-break: break-word;
+    /* ── drop zone ───────────────────────────────────── */
+    .drop-zone {
+      border: 2px dashed var(--border);
+      border-radius: 10px;
+      padding: 2rem 1rem;
+      text-align: center;
+      color: var(--muted);
       font-size: 0.875rem;
-      color: #c8ffc8;
-      min-height: 2rem;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      position: relative;
     }
+    .drop-zone.drag-over { border-color: var(--accent); background: rgba(91,106,240,0.06); }
+    .drop-zone input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+    .drop-zone img { max-height: 220px; max-width: 100%; border-radius: 8px; margin-top: 0.75rem; }
+    .drop-hint { pointer-events: none; }
 
-    .status-indicator {
-      display: inline-block;
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      background: #555;
-      margin-right: 0.4rem;
-      vertical-align: middle;
+    /* ── results ─────────────────────────────────────── */
+    .match-list { display: flex; flex-direction: column; gap: 0.6rem; }
+    .match-item {
+      display: flex; align-items: center; gap: 0.75rem;
+      background: #111115; border: 1px solid var(--border);
+      border-radius: 8px; padding: 0.6rem 0.85rem;
     }
-    .status-indicator.ok { background: #4caf50; }
-    .status-indicator.error { background: #f44336; }
+    .match-rank { font-size: 0.75rem; color: var(--muted); width: 1.2rem; flex-shrink: 0; }
+    .match-info { flex: 1; min-width: 0; }
+    .match-name { font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .match-id   { font-size: 0.74rem; color: var(--muted); font-family: monospace; }
+    .match-bar-wrap { width: 90px; flex-shrink: 0; }
+    .match-bar-bg { background: var(--border); border-radius: 999px; height: 5px; overflow: hidden; }
+    .match-bar-fill { height: 100%; border-radius: 999px; background: var(--accent); }
+    .match-score { font-size: 0.78rem; color: var(--muted); text-align: right; }
 
-    #status-text { font-size: 0.8rem; color: #888; vertical-align: middle; }
+    .empty-state { text-align: center; color: var(--muted); font-size: 0.875rem; padding: 1.5rem 0; }
+
+    /* ── shopify section ─────────────────────────────── */
+    .shopify-row { display: grid; grid-template-columns: 1fr auto; gap: 0.75rem; align-items: end; }
+
+    /* ── library table ───────────────────────────────── */
+    table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+    th { text-align: left; padding: 0.5rem 0.6rem; color: var(--muted); font-weight: 500; border-bottom: 1px solid var(--border); }
+    td { padding: 0.55rem 0.6rem; border-bottom: 1px solid #1e1e25; vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    .pill {
+      display: inline-block; background: #1e1e30; border: 1px solid #2e2e50;
+      border-radius: 999px; padding: 0 0.45rem; font-size: 0.72rem;
+      color: #8888cc; margin: 1px;
+    }
+    .ref-count { font-size: 0.75rem; color: var(--muted); }
+
+    /* ── toast ───────────────────────────────────────── */
+    #toast {
+      position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%);
+      background: #1e1e2a; border: 1px solid var(--border);
+      border-radius: 8px; padding: 0.6rem 1.1rem;
+      font-size: 0.85rem; color: var(--text);
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.25s;
+      z-index: 9999; white-space: nowrap;
+    }
+    #toast.show { opacity: 1; }
+    #toast.ok   { border-color: var(--success); color: var(--success); }
+    #toast.err  { border-color: var(--error);   color: var(--error);   }
   </style>
 </head>
 <body>
 
-  <h1>JumpApp</h1>
-  <p class="subtitle">
-    <span class="status-indicator" id="status-dot"></span>
-    <span id="status-text">checking server…</span>
-  </p>
+  <!-- ── Header ─────────────────────────────────── -->
+  <header>
+    <h1>Bead Classifier</h1>
+    <div class="status-row">
+      <span class="dot" id="srv-dot"></span>
+      <span id="srv-text">connecting…</span>
+      <span class="badge" id="badge-db">DB –</span>
+      <span class="badge" id="badge-shopify">Shopify –</span>
+      <span class="badge" id="badge-beads">0 beads</span>
+    </div>
+  </header>
 
-  <div class="card">
-    <label for="input-box">Input</label>
-    <textarea id="input-box" placeholder="Enter your input here…"></textarea>
-    <button id="run-btn" disabled>Run inference</button>
+  <!-- ── Tabs ───────────────────────────────────── -->
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="classify">Classify</button>
+    <button class="tab-btn"        data-tab="train">Train</button>
+    <button class="tab-btn"        data-tab="library">Library</button>
   </div>
 
-  <div class="card">
-    <label>Output</label>
-    <div id="output">—</div>
+  <!-- ══════════════════════════════════════════════
+       TAB: Classify
+       ══════════════════════════════════════════════ -->
+  <div class="tab-panel active" id="tab-classify">
+
+    <div class="card">
+      <p class="card-title">Product image</p>
+      <div class="drop-zone" id="drop-zone">
+        <input type="file" id="infer-file" accept="image/*" />
+        <div class="drop-hint" id="drop-hint">
+          Drop image here or <strong>click to browse</strong><br />
+          <span style="font-size:0.78rem">JPEG · PNG · WebP</span>
+        </div>
+        <img id="infer-preview" style="display:none" alt="preview" />
+      </div>
+      <button class="btn btn-primary btn-full" id="infer-btn" disabled>
+        Run inference
+      </button>
+    </div>
+
+    <div class="card" id="results-card" style="display:none">
+      <p class="card-title">Matched beads</p>
+      <div class="match-list" id="match-list"></div>
+    </div>
+
+    <div class="card" id="shopify-card" style="display:none">
+      <p class="card-title">Push to Shopify</p>
+      <div class="shopify-row">
+        <div class="field" style="margin:0">
+          <label for="product-id">Shopify product ID</label>
+          <input type="text" id="product-id" placeholder="e.g. 8419827482736" />
+        </div>
+        <button class="btn btn-primary" id="push-btn">Push tags</button>
+      </div>
+      <div style="margin-top:0.6rem; font-size:0.8rem; color:var(--muted)" id="push-result"></div>
+    </div>
+
   </div>
+
+  <!-- ══════════════════════════════════════════════
+       TAB: Train
+       ══════════════════════════════════════════════ -->
+  <div class="tab-panel" id="tab-train">
+
+    <div class="card">
+      <p class="card-title">Add reference bead</p>
+
+      <div class="row-2">
+        <div class="field">
+          <label>Bead ID <span style="color:#888">(unique slug)</span></label>
+          <input type="text" id="t-bead-id" placeholder="round-red-glass-001" />
+        </div>
+        <div class="field">
+          <label>Name</label>
+          <input type="text" id="t-name" placeholder="Round Red Glass Bead" />
+        </div>
+      </div>
+
+      <div class="row-3">
+        <div class="field">
+          <label>Color</label>
+          <input type="text" id="t-color" placeholder="red" />
+        </div>
+        <div class="field">
+          <label>Finish</label>
+          <input type="text" id="t-finish" placeholder="glossy" />
+        </div>
+        <div class="field">
+          <label>Shape</label>
+          <input type="text" id="t-shape" placeholder="round" />
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Tags <span style="color:#888">(comma-separated)</span></label>
+        <input type="text" id="t-tags" placeholder="glass, round, red" />
+      </div>
+
+      <div class="field">
+        <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;color:var(--text)">
+          <input type="checkbox" id="t-focal-bead" style="width:auto;accent-color:var(--accent)" />
+          Focal bead
+        </label>
+      </div>
+
+      <div id="focal-extra-fields" style="display:none">
+        <div class="field">
+          <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;color:var(--text)">
+            <input type="checkbox" id="t-is-3d" style="width:auto;accent-color:var(--accent)" />
+            3D focal bead
+            <span style="color:#888;font-size:0.8rem">(figurine; unchecked = flat, ~5–6 mm thick)</span>
+          </label>
+        </div>
+        <div class="field">
+          <label>Focal description</label>
+          <textarea id="t-focal-desc" placeholder="Describe what makes this a focal bead…"></textarea>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Reference image</label>
+        <div class="drop-zone" id="train-drop">
+          <input type="file" id="train-file" accept="image/*" />
+          <div class="drop-hint" id="train-hint">Drop image or <strong>click to browse</strong></div>
+          <img id="train-preview" style="display:none" alt="reference" />
+        </div>
+      </div>
+
+      <button class="btn btn-primary btn-full" id="train-btn">Save to data lake</button>
+    </div>
+
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       TAB: Library
+       ══════════════════════════════════════════════ -->
+  <div class="tab-panel" id="tab-library">
+
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+        <p class="card-title" style="margin:0">Data lake</p>
+        <button class="btn btn-ghost" style="font-size:0.8rem;padding:0.35rem 0.75rem" id="refresh-lib">Refresh</button>
+      </div>
+      <div id="lib-body">
+        <p class="empty-state">Loading…</p>
+      </div>
+    </div>
+
+  </div>
+
+  <div id="toast"></div>
 
   <script>
-    // ---------------------------------------------------------------------------
-    // Port discovery — reads from ?port= query param, falls back to 8000.
-    // Do NOT hard-code a port here; let JumpApp pass it in at launch time.
-    // ---------------------------------------------------------------------------
-    const params = new URLSearchParams(window.location.search);
-    const BASE_URL = `http://127.0.0.1:${params.get("port") ?? 8000}`;
+    // ── Port discovery ─────────────────────────────────────────────────────
+    const params  = new URLSearchParams(window.location.search);
+    const BASE    = `http://127.0.0.1:${params.get("port") ?? 8000}`;
 
-    const statusDot  = document.getElementById("status-dot");
-    const statusText = document.getElementById("status-text");
-    const runBtn     = document.getElementById("run-btn");
-    const inputBox   = document.getElementById("input-box");
-    const outputDiv  = document.getElementById("output");
+    // ── Tabs ───────────────────────────────────────────────────────────────
+    document.querySelectorAll(".tab-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+        document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
+        btn.classList.add("active");
+        document.getElementById(`tab-${btn.dataset.tab}`).classList.add("active");
+        if (btn.dataset.tab === "library") refreshLibrary();
+      });
+    });
 
-    // ---------------------------------------------------------------------------
-    // Poll /status on load
-    // ---------------------------------------------------------------------------
+    // ── Toast ──────────────────────────────────────────────────────────────
+    let toastTimer;
+    function toast(msg, type = "ok") {
+      const el = document.getElementById("toast");
+      el.textContent = msg;
+      el.className  = `show ${type}`;
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => { el.className = ""; }, 3200);
+    }
+
+    // ── Status polling ─────────────────────────────────────────────────────
     async function checkStatus() {
       try {
-        const res  = await fetch(`${BASE_URL}/status`);
-        const data = await res.json();
-        statusDot.className  = "status-indicator ok";
-        statusText.textContent = `server ${data.status ?? "ok"} · v${data.version ?? "?"}`;
-        runBtn.disabled = false;
+        const r    = await fetch(`${BASE}/status`);
+        const data = await r.json();
+        const dot  = document.getElementById("srv-dot");
+        dot.className = "dot ok";
+        document.getElementById("srv-text").textContent =
+          `server ok · v${data.version ?? "?"}`;
+
+        const db = document.getElementById("badge-db");
+        db.textContent = data.db_connected ? "DB ✓" : "DB ✗";
+        db.className   = `badge ${data.db_connected ? "on" : ""}`;
+
+        const sh = document.getElementById("badge-shopify");
+        sh.textContent = data.shopify_configured ? "Shopify ✓" : "Shopify –";
+        sh.className   = `badge ${data.shopify_configured ? "on" : ""}`;
+
+        document.getElementById("badge-beads").textContent =
+          `${data.bead_count ?? 0} bead${data.bead_count === 1 ? "" : "s"}`;
+
+        document.getElementById("infer-btn").disabled =
+          !document.getElementById("infer-preview").src || !data.db_connected;
       } catch {
-        statusDot.className  = "status-indicator error";
-        statusText.textContent = "server unreachable";
+        document.getElementById("srv-dot").className  = "dot error";
+        document.getElementById("srv-text").textContent = "server unreachable";
+        document.getElementById("infer-btn").disabled = true;
       }
     }
 
     checkStatus();
+    setInterval(checkStatus, 10_000);
 
-    // ---------------------------------------------------------------------------
-    // Run inference
-    // ---------------------------------------------------------------------------
-    runBtn.addEventListener("click", async () => {
-      const input = inputBox.value.trim();
-      if (!input) return;
+    // ── Drop zone helper ───────────────────────────────────────────────────
+    function setupDrop(zoneId, inputId, previewId, hintId, onFile) {
+      const zone    = document.getElementById(zoneId);
+      const input   = document.getElementById(inputId);
+      const preview = document.getElementById(previewId);
+      const hint    = document.getElementById(hintId);
 
-      runBtn.disabled   = true;
-      outputDiv.textContent = "…";
+      function handleFile(file) {
+        if (!file || !file.type.startsWith("image/")) return;
+        const reader = new FileReader();
+        reader.onload = e => {
+          preview.src  = e.target.result;
+          preview.style.display = "block";
+          hint.style.display    = "none";
+        };
+        reader.readAsDataURL(file);
+        if (onFile) onFile(file);
+      }
+
+      input.addEventListener("change", () => handleFile(input.files[0]));
+      zone.addEventListener("dragover",  e => { e.preventDefault(); zone.classList.add("drag-over"); });
+      zone.addEventListener("dragleave", () => zone.classList.remove("drag-over"));
+      zone.addEventListener("drop", e => {
+        e.preventDefault();
+        zone.classList.remove("drag-over");
+        handleFile(e.dataTransfer.files[0]);
+      });
+    }
+
+    // ── Focal bead toggle ──────────────────────────────────────────────────
+    document.getElementById("t-focal-bead").addEventListener("change", e => {
+      document.getElementById("focal-extra-fields").style.display = e.target.checked ? "block" : "none";
+      if (!e.target.checked) document.getElementById("t-is-3d").checked = false;
+    });
+
+    setupDrop("drop-zone", "infer-file", "infer-preview", "drop-hint", () => {
+      checkStatus();   // update btn state after image selected
+      document.getElementById("infer-btn").disabled = false;
+    });
+    setupDrop("train-drop", "train-file", "train-preview", "train-hint");
+
+    // ── Classify ───────────────────────────────────────────────────────────
+    let lastMatches = [];
+
+    document.getElementById("infer-btn").addEventListener("click", async () => {
+      const fileInput = document.getElementById("infer-file");
+      if (!fileInput.files[0]) return;
+
+      const btn = document.getElementById("infer-btn");
+      btn.disabled = true;
+      btn.textContent = "Analysing…";
 
       try {
-        const res  = await fetch(`${BASE_URL}/infer`, {
-          method:  "POST",
-          headers: { "Content-Type": "application/json" },
-          body:    JSON.stringify({ input }),
-        });
+        const fd = new FormData();
+        fd.append("image", fileInput.files[0]);
 
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const r = await fetch(`${BASE}/infer`, { method: "POST", body: fd });
+        if (!r.ok) { const e = await r.json(); throw new Error(e.detail ?? r.statusText); }
+        const data = await r.json();
 
-        const data = await res.json();
-        outputDiv.textContent = typeof data.output === "string"
-          ? data.output
-          : JSON.stringify(data, null, 2);
+        lastMatches = data.matches ?? [];
+        renderMatches(lastMatches);
+
+        document.getElementById("results-card").style.display = "block";
+        document.getElementById("shopify-card").style.display =
+          lastMatches.length ? "block" : "none";
       } catch (err) {
-        outputDiv.textContent = `Error: ${err.message}`;
+        toast(`Inference failed: ${err.message}`, "err");
       } finally {
-        runBtn.disabled = false;
+        btn.disabled = false;
+        btn.textContent = "Run inference";
       }
     });
+
+    function renderMatches(matches) {
+      const list = document.getElementById("match-list");
+      if (!matches.length) {
+        list.innerHTML = `<p class="empty-state">No matches above confidence threshold.</p>`;
+        return;
+      }
+      list.innerHTML = matches.map((m, i) => `
+        <div class="match-item">
+          <span class="match-rank">${i + 1}</span>
+          <div class="match-info">
+            <div class="match-name">${esc(m.name || m.bead_id)}</div>
+            <div class="match-id">${esc(m.bead_id)}</div>
+          </div>
+          <div class="match-bar-wrap">
+            <div class="match-bar-bg">
+              <div class="match-bar-fill" style="width:${Math.round(m.confidence * 100)}%"></div>
+            </div>
+          </div>
+          <div class="match-score">${(m.confidence * 100).toFixed(1)}%</div>
+        </div>`).join("");
+    }
+
+    // ── Shopify push ───────────────────────────────────────────────────────
+    document.getElementById("push-btn").addEventListener("click", async () => {
+      const productId = document.getElementById("product-id").value.trim();
+      if (!productId) { toast("Enter a Shopify product ID", "err"); return; }
+      if (!lastMatches.length) { toast("Run inference first", "err"); return; }
+
+      const btn = document.getElementById("push-btn");
+      btn.disabled = true;
+      btn.textContent = "Pushing…";
+
+      try {
+        const r = await fetch(`${BASE}/shopify/tag`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            product_id: productId,
+            bead_ids: lastMatches.map(m => m.bead_id),
+          }),
+        });
+        if (!r.ok) { const e = await r.json(); throw new Error(e.detail ?? r.statusText); }
+        const data = await r.json();
+        document.getElementById("push-result").textContent = `Tags: ${data.tags}`;
+        toast("Shopify tags updated ✓");
+      } catch(err) {
+        toast(`Shopify error: ${err.message}`, "err");
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Push tags";
+      }
+    });
+
+    // ── Train ──────────────────────────────────────────────────────────────
+    document.getElementById("train-btn").addEventListener("click", async () => {
+      const beadId = document.getElementById("t-bead-id").value.trim();
+      const name   = document.getElementById("t-name").value.trim();
+      const file   = document.getElementById("train-file").files[0];
+
+      if (!beadId) { toast("Bead ID is required", "err"); return; }
+      if (!name)   { toast("Name is required",    "err"); return; }
+      if (!file)   { toast("Reference image is required", "err"); return; }
+
+      const btn = document.getElementById("train-btn");
+      btn.disabled = true;
+      btn.textContent = "Saving…";
+
+      try {
+        const b64 = await fileToB64(file);
+        const payload = {
+          bead_id:   beadId,
+          name,
+          color:     document.getElementById("t-color").value.trim(),
+          finish:    document.getElementById("t-finish").value.trim(),
+          shape:     document.getElementById("t-shape").value.trim(),
+          tags:              document.getElementById("t-tags").value.split(",").map(s => s.trim()).filter(Boolean),
+          focal_bead:        document.getElementById("t-focal-bead").checked,
+          is_3d:             document.getElementById("t-is-3d").checked,
+          focal_description: document.getElementById("t-focal-desc").value.trim(),
+          image_b64:         b64,
+          mime_type:         file.type || "image/jpeg",
+        };
+
+        const r = await fetch(`${BASE}/train`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (!r.ok) { const e = await r.json(); throw new Error(e.detail ?? r.statusText); }
+
+        toast(`Bead '${beadId}' saved to data lake ✓`);
+        // Reset form
+        ["t-bead-id","t-name","t-color","t-finish","t-shape","t-tags","t-focal-desc"].forEach(id => {
+          document.getElementById(id).value = "";
+        });
+        document.getElementById("t-focal-bead").checked = false;
+        document.getElementById("t-is-3d").checked = false;
+        document.getElementById("focal-extra-fields").style.display = "none";
+        document.getElementById("train-file").value = "";
+        document.getElementById("train-preview").style.display = "none";
+        document.getElementById("train-hint").style.display    = "block";
+        checkStatus();
+      } catch(err) {
+        toast(`Train error: ${err.message}`, "err");
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Save to data lake";
+      }
+    });
+
+    // ── Library ────────────────────────────────────────────────────────────
+    document.getElementById("refresh-lib").addEventListener("click", refreshLibrary);
+
+    async function refreshLibrary() {
+      const body = document.getElementById("lib-body");
+      body.innerHTML = `<p class="empty-state">Loading…</p>`;
+      try {
+        const r = await fetch(`${BASE}/beads`);
+        if (!r.ok) throw new Error(r.statusText);
+        const beads = await r.json();
+        renderLibrary(beads);
+      } catch(err) {
+        body.innerHTML = `<p class="empty-state" style="color:var(--error)">Error: ${esc(err.message)}</p>`;
+      }
+    }
+
+    function renderLibrary(beads) {
+      const body = document.getElementById("lib-body");
+      if (!beads.length) {
+        body.innerHTML = `<p class="empty-state">No beads yet. Add some in the Train tab.</p>`;
+        return;
+      }
+      body.innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th><th>Name</th><th>Attrs</th><th>Refs</th><th></th>
+            </tr>
+          </thead>
+          <tbody>
+            ${beads.map(b => `
+              <tr>
+                <td><code style="font-size:0.78rem">${esc(b.bead_id)}</code></td>
+                <td>${esc(b.name)}</td>
+                <td>
+                  ${b.color      ? `<span class="pill">${esc(b.color)}</span>`  : ""}
+                  ${b.finish     ? `<span class="pill">${esc(b.finish)}</span>` : ""}
+                  ${b.shape      ? `<span class="pill">${esc(b.shape)}</span>`  : ""}
+                  ${b.focal_bead ? `<span class="pill" style="border-color:#7c5af0;color:#a78bfa" title="${esc(b.focal_description || '')}">focal</span>` : ""}
+                  ${b.focal_bead && b.is_3d ? `<span class="pill" style="border-color:#5a8af0;color:#93c5fd">3D</span>` : ""}
+                </td>
+                <td class="ref-count">${(b.embeddings ?? []).length} img${(b.embeddings ?? []).length === 1 ? "" : "s"}</td>
+                <td>
+                  <button class="btn btn-danger" style="font-size:0.78rem;padding:0.3rem 0.6rem"
+                    onclick="deleteBead('${esc(b.bead_id)}', this)">Delete</button>
+                </td>
+              </tr>`).join("")}
+          </tbody>
+        </table>`;
+    }
+
+    async function deleteBead(beadId, btn) {
+      if (!confirm(`Delete bead '${beadId}'?`)) return;
+      btn.disabled = true;
+      try {
+        const r = await fetch(`${BASE}/beads/${encodeURIComponent(beadId)}`, { method: "DELETE" });
+        if (!r.ok) { const e = await r.json(); throw new Error(e.detail ?? r.statusText); }
+        toast(`'${beadId}' deleted`);
+        refreshLibrary();
+        checkStatus();
+      } catch(err) {
+        toast(`Delete failed: ${err.message}`, "err");
+        btn.disabled = false;
+      }
+    }
+
+    // ── Utilities ──────────────────────────────────────────────────────────
+    function esc(str) {
+      return String(str ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    }
+
+    function fileToB64(file) {
+      return new Promise((res, rej) => {
+        const reader = new FileReader();
+        reader.onload  = e => res(e.target.result.split(",")[1]);
+        reader.onerror = rej;
+        reader.readAsDataURL(file);
+      });
+    }
   </script>
 
 </body>

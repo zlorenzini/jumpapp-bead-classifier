@@ -1,4 +1,26 @@
 [
-  "class_0",
-  "class_1"
+  {
+    "bead_id": "round-red-glass-001",
+    "name": "Round Red Glass Bead",
+    "color": "red",
+    "finish": "glossy",
+    "shape": "round",
+    "tags": ["glass", "round", "red"]
+  },
+  {
+    "bead_id": "faceted-blue-crystal-001",
+    "name": "Faceted Blue Crystal Bead",
+    "color": "blue",
+    "finish": "transparent",
+    "shape": "faceted",
+    "tags": ["crystal", "faceted", "blue"]
+  },
+  {
+    "bead_id": "flat-gold-metal-001",
+    "name": "Flat Gold Metal Spacer",
+    "color": "gold",
+    "finish": "matte",
+    "shape": "flat",
+    "tags": ["metal", "spacer", "gold"]
+  }
 ]
