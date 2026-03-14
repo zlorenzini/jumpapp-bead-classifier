@@ -14,6 +14,7 @@ POST /train                Start a MobileNetV2 training job (async)
 GET  /train                List all training jobs
 GET  /train/{id}           Job status, progress, and logs
 POST /train/{id}/stop      Request graceful stop of a running job
+POST /acquire              Search internet for bead images and ingest them
 GET  /beads                List all beads in the data lake
 GET  /beads/{bead_id}      Fetch a single bead record
 DELETE /beads/{bead_id}    Remove a bead from the data lake
@@ -73,6 +74,7 @@ import shopify_client
 from routes.add_bead import router as add_bead_router
 from routes.train    import router as train_router
 from routes.bundles  import router as bundles_router
+from routes.acquire  import router as acquire_router
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -178,6 +180,7 @@ app.add_middleware(
 app.include_router(add_bead_router, prefix="/add-bead", tags=["add-bead"])
 app.include_router(train_router,    prefix="/train",    tags=["train"])
 app.include_router(bundles_router,  prefix="/bundles",  tags=["bundles"])
+app.include_router(acquire_router,  prefix="/acquire",  tags=["acquire"])
 
 
 # ---------------------------------------------------------------------------

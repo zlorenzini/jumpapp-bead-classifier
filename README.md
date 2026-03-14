@@ -246,11 +246,96 @@ Returns matched beads plus the raw captured `image_b64`.
 > **Training requirements:** at least **2 distinct bead SKUs** with at least
 > one image each must be in the database before training can start.
 
-### Shopify integration
+### Acquisition
 
 | Method | Path | Description |
 |---|---|---|
-| `POST` | `/shopify/tag` | Push detected bead tags to a Shopify product |
+| `POST` | `/acquire` | Search the internet for bead images and ingest them |
+
+Searches for bead images matching a query string, extracts metadata from text
+context (title, alt text, caption), and ingests each image into the data lake
+via the same `/add-bead` pipeline.
+
+**What it does not do:** it does not crawl websites, parse HTML, or follow
+links.  It fetches only the direct image URLs returned by the search API.
+
+#### `POST /acquire` — request body
+
+```json
+{
+  "query":       "10mm silicone hexagon dusty rose",
+  "max_results": 5
+}
+```
+
+**Response**
+
+```json
+{
+  "query": "10mm silicone hexagon dusty rose",
+  "ingested": [
+    {
+      "sku":          "10mm-silicone-hexagon-dusty-rose",
+      "name":         "10mm Silicone Hexagon Dusty Rose Bead",
+      "image_url":    "https://example.com/bead.jpg",
+      "embedding_id": "…"
+    }
+  ],
+  "skipped": [
+    { "image_url": "https://example.com/bead2.jpg", "reason": "HTTP 403" }
+  ],
+  "errors": []
+}
+```
+
+#### Pluggable backends
+
+Both the search API and the LLM metadata extractor are abstract interfaces
+defined in `server/acquisition.py`.  The defaults are stubs (return nothing)
+so the endpoint is always safe to call but does nothing without a real backend.
+
+**Wiring in a real search client:**
+
+```python
+# In acquisition.py or a deployment config module:
+from acquisition import SearchResult
+
+class GoogleImageSearchClient(SearchClient):
+    def __init__(self, api_key: str, cx: str):
+        self._api_key = api_key
+        self._cx = cx
+
+    async def search(self, query: str, max_results: int) -> list[SearchResult]:
+        # Call the Google Custom Search JSON API
+        ...
+```
+
+Pass it to `acquire_beads()`:
+
+```python
+from acquisition import acquire_beads, GoogleImageSearchClient
+
+summary = await acquire_beads(
+    query="10mm silicone hexagon dusty rose",
+    max_results=5,
+    search_client=GoogleImageSearchClient(api_key="…", cx="…"),
+)
+```
+
+**Wiring in a real LLM extractor:**
+
+```python
+class OpenAIExtractor(LLMExtractor):
+    def __init__(self, api_key: str, model: str = "gpt-4o-mini"):
+        self._api_key = api_key
+        self._model = model
+
+    async def extract(self, *, page_title, alt_text, caption, surrounding_text, query):
+        # Call the OpenAI chat completions API
+        ...
+```
+
+### Shopify integration
 
 ```json
 {
@@ -284,13 +369,15 @@ jumpapp-bead-classifier/
     ├── embedder.py       # ResNet-50 embedding backbone
     ├── inference.py      # Two-tier inference (classifier + cosine fallback)
     ├── trainer.py        # Background MobileNetV2 training job runner
+    ├── acquisition.py    # Acquisition pipeline: SearchClient + LLMExtractor interfaces
     ├── state.py          # Shared mutable state (models_dir)
     ├── shopify_client.py # Shopify Admin API integration
     ├── requirements.txt
     └── routes/
         ├── add_bead.py   # POST /add-bead
         ├── train.py      # POST|GET /train, POST /train/{id}/stop
-        └── bundles.py    # GET /bundles
+        ├── bundles.py    # GET /bundles
+        └── acquire.py    # POST /acquire
 ```
 
 ---
