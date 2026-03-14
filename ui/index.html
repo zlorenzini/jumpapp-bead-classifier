@@ -109,6 +109,7 @@
 
     .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
     .row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.75rem; }
+    .row-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 0.75rem; }
 
     /* ── buttons ─────────────────────────────────────── */
     .btn {
@@ -127,6 +128,54 @@
     .btn-ghost:not(:disabled):hover    { color: var(--text); border-color: #555; }
     .btn-full { width: 100%; margin-top: 0.75rem; }
 
+    /* ── camera preview ─────────────────────────────── */
+    .cam-wrap {
+      position: relative;
+      background: #0a0a0c;
+      border-radius: 10px;
+      overflow: hidden;
+      min-height: 120px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .cam-wrap img {
+      width: 100%;
+      display: block;
+      border-radius: 10px;
+    }
+    .cam-overlay {
+      position: absolute;
+      bottom: 0.5rem;
+      right: 0.6rem;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .cam-ts {
+      font-size: 0.72rem;
+      color: rgba(255,255,255,0.55);
+      background: rgba(0,0,0,0.55);
+      border-radius: 6px;
+      padding: 0.15rem 0.45rem;
+    }
+    .cam-refresh {
+      background: rgba(0,0,0,0.55);
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 6px;
+      color: rgba(255,255,255,0.7);
+      font-size: 0.72rem;
+      padding: 0.15rem 0.45rem;
+      cursor: pointer;
+      line-height: 1;
+    }
+    .cam-refresh:hover { background: rgba(0,0,0,0.8); color: #fff; }
+    .cam-placeholder {
+      color: var(--muted);
+      font-size: 0.82rem;
+      text-align: center;
+      padding: 2rem 1rem;
+    }
     /* ── drop zone ───────────────────────────────────── */
     .drop-zone {
       border: 2px dashed var(--border);
@@ -219,7 +268,20 @@
   <div class="tab-panel active" id="tab-classify">
 
     <div class="card">
-      <p class="card-title">Product image</p>
+      <p class="card-title">Camera</p>
+      <div class="cam-wrap" id="cam-wrap">
+        <div class="cam-placeholder" id="cam-placeholder">📷 Loading camera…</div>
+        <img id="cam-img" style="display:none" alt="camera preview" />
+        <div class="cam-overlay">
+          <span class="cam-ts" id="cam-ts" style="display:none"></span>
+        </div>
+      </div>
+      <button class="btn btn-primary btn-full" id="classify-cam-btn"
+        style="margin-top:0.75rem" disabled>Classify this frame</button>
+    </div>
+
+    <div class="card">
+      <p class="card-title">Or upload an image</p>
       <div class="drop-zone" id="drop-zone">
         <input type="file" id="infer-file" accept="image/*" />
         <div class="drop-hint" id="drop-hint">
@@ -260,58 +322,181 @@
     <div class="card">
       <p class="card-title">Add reference bead</p>
 
+      <!-- Identity -->
       <div class="row-2">
         <div class="field">
-          <label>Bead ID <span style="color:#888">(unique slug)</span></label>
-          <input type="text" id="t-bead-id" placeholder="round-red-glass-001" />
+          <label>SKU <span style="color:#888">(unique key)</span></label>
+          <input type="text" id="t-sku" placeholder="GS-10-HEX" />
         </div>
         <div class="field">
           <label>Name</label>
-          <input type="text" id="t-name" placeholder="Round Red Glass Bead" />
+          <input type="text" id="t-name" placeholder="Green Silicone 10mm Hexagon" />
         </div>
       </div>
 
+      <!-- Material -->
+      <div class="row-2">
+        <div class="field">
+          <label>Material category</label>
+          <select id="t-material-category">
+            <option value="">-- select --</option>
+            <option>silicone</option>
+            <option>glass</option>
+            <option>acrylic</option>
+            <option>metal</option>
+            <option>ceramic</option>
+            <option>wood</option>
+            <option>gemstone</option>
+            <option>organic</option>
+            <option>resin</option>
+            <option>rhinestone</option>
+            <option>fabric</option>
+            <option>other</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Material <span style="color:#888">(sub-type)</span></label>
+          <input type="text" id="t-material" placeholder="e.g. czech glass, sterling silver" />
+        </div>
+      </div>
+
+      <!-- Shape / Size / Hole -->
       <div class="row-3">
         <div class="field">
-          <label>Color</label>
-          <input type="text" id="t-color" placeholder="red" />
-        </div>
-        <div class="field">
-          <label>Finish</label>
-          <input type="text" id="t-finish" placeholder="glossy" />
-        </div>
-        <div class="field">
           <label>Shape</label>
-          <input type="text" id="t-shape" placeholder="round" />
+          <select id="t-shape">
+            <option value="">-- select --</option>
+            <option>round</option>
+            <option>oval</option>
+            <option>hexagon</option>
+            <option>tube</option>
+            <option>flat</option>
+            <option>bicone</option>
+            <option>rondelle</option>
+            <option>faceted</option>
+            <option>drop</option>
+            <option>cube</option>
+            <option>heart</option>
+            <option>star</option>
+            <option>letter</option>
+            <option>barrel</option>
+            <option>nugget</option>
+            <option>coin</option>
+            <option>other</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Size (mm)</label>
+          <input type="number" id="t-size-mm" placeholder="10" min="0" step="0.5" />
+        </div>
+        <div class="field">
+          <label>Hole type</label>
+          <select id="t-hole-type">
+            <option value="">-- select --</option>
+            <option value="center-drilled">center-drilled</option>
+            <option value="large-hole">large-hole</option>
+            <option value="top-drilled">top-drilled</option>
+            <option value="side-drilled">side-drilled</option>
+          </select>
         </div>
       </div>
 
+      <!-- Colour -->
+      <div class="row-2">
+        <div class="field">
+          <label>Color <span style="color:#888">(specific name)</span></label>
+          <input type="text" id="t-color" placeholder="dusty rose, cobalt blue…" />
+        </div>
+        <div class="field">
+          <label>Color family</label>
+          <select id="t-color-family">
+            <option value="">-- select --</option>
+            <option>red</option>
+            <option>orange</option>
+            <option>yellow</option>
+            <option>green</option>
+            <option>blue</option>
+            <option>purple</option>
+            <option>pink</option>
+            <option>brown</option>
+            <option>white</option>
+            <option>black</option>
+            <option>gray</option>
+            <option>gold</option>
+            <option>silver</option>
+            <option>multicolor</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Finish -->
+      <div class="field">
+        <label>Finish</label>
+        <select id="t-finish">
+          <option value="">-- select --</option>
+          <option>glossy</option>
+          <option>matte</option>
+          <option>transparent</option>
+          <option>frosted</option>
+          <option>metallic</option>
+          <option>iridescent</option>
+          <option>pearlized</option>
+          <option>crackle</option>
+          <option>painted</option>
+          <option>etched</option>
+          <option>glow</option>
+          <option value="uv-reactive">uv-reactive</option>
+          <option>other</option>
+        </select>
+      </div>
+
+      <!-- Source / Cost -->
+      <div class="row-2">
+        <div class="field">
+          <label>Source / Vendor</label>
+          <input type="text" id="t-source" placeholder="Temu, Amazon, Etsy…" />
+        </div>
+        <div class="field">
+          <label>Cost per unit ($)</label>
+          <input type="number" id="t-cost" placeholder="0.00" min="0" step="0.01" />
+        </div>
+      </div>
+
+      <!-- Tags -->
       <div class="field">
         <label>Tags <span style="color:#888">(comma-separated)</span></label>
-        <input type="text" id="t-tags" placeholder="glass, round, red" />
+        <input type="text" id="t-tags" placeholder="silicone, hexagon, dusty rose" />
       </div>
 
+      <!-- Focal bead toggle -->
       <div class="field">
         <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;color:var(--text)">
           <input type="checkbox" id="t-focal-bead" style="width:auto;accent-color:var(--accent)" />
-          Focal bead
+          Focal bead <span style="color:#888;font-size:0.8rem">(character, animal, or saying)</span>
         </label>
       </div>
 
       <div id="focal-extra-fields" style="display:none">
-        <div class="field">
-          <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;color:var(--text)">
-            <input type="checkbox" id="t-is-3d" style="width:auto;accent-color:var(--accent)" />
-            3D focal bead
-            <span style="color:#888;font-size:0.8rem">(figurine; unchecked = flat, ~5–6 mm thick)</span>
-          </label>
+        <div class="row-2">
+          <div class="field">
+            <label>Subject <span style="color:#888">(character / saying name)</span></label>
+            <input type="text" id="t-focal-subject" placeholder="Stitch, Highland Cow, Mama Bear…" />
+          </div>
+          <div class="field" style="display:flex;align-items:center;padding-top:1.6rem">
+            <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;color:var(--text);margin:0">
+              <input type="checkbox" id="t-is-3d" style="width:auto;accent-color:var(--accent)" />
+              3-D figurine
+              <span style="color:#888;font-size:0.78rem">(unchecked = 2-D flat, ~6–8 mm thick)</span>
+            </label>
+          </div>
         </div>
         <div class="field">
-          <label>Focal description</label>
-          <textarea id="t-focal-desc" placeholder="Describe what makes this a focal bead…"></textarea>
+          <label>Focal description <span style="color:#888">(pose, colours, variant…)</span></label>
+          <textarea id="t-focal-desc" placeholder="e.g. Blue alien wearing a Santa hat, seated, painted details"></textarea>
         </div>
       </div>
 
+      <!-- Image -->
       <div class="field">
         <label>Reference image</label>
         <div class="drop-zone" id="train-drop">
@@ -319,6 +504,8 @@
           <div class="drop-hint" id="train-hint">Drop image or <strong>click to browse</strong></div>
           <img id="train-preview" style="display:none" alt="reference" />
         </div>
+        <button class="btn btn-ghost" id="train-capture-btn"
+          style="width:100%;margin-top:0.5rem">📷 Capture from camera</button>
       </div>
 
       <button class="btn btn-primary btn-full" id="train-btn">Save to data lake</button>
@@ -346,9 +533,11 @@
   <div id="toast"></div>
 
   <script>
-    // ── Port discovery ─────────────────────────────────────────────────────
+    // ── API base — same origin when served by FastAPI, override with ?port= ──
     const params  = new URLSearchParams(window.location.search);
-    const BASE    = `http://127.0.0.1:${params.get("port") ?? 8000}`;
+    const BASE    = params.get("port")
+                  ? `${window.location.protocol}//${window.location.hostname}:${params.get("port")}`
+                  : window.location.origin;
 
     // ── Tabs ───────────────────────────────────────────────────────────────
     document.querySelectorAll(".tab-btn").forEach(btn => {
@@ -445,8 +634,120 @@
     });
     setupDrop("train-drop", "train-file", "train-preview", "train-hint");
 
+    // ── Camera live preview (1s between frames) ──────────────────────────
+    let lastFrameB64  = null;
+    let lastFrameMime = "image/jpeg";
+    let camRunning    = true;
+
+    async function fetchPreview() {
+      const img         = document.getElementById("cam-img");
+      const placeholder = document.getElementById("cam-placeholder");
+      const tsEl        = document.getElementById("cam-ts");
+      const classifyBtn = document.getElementById("classify-cam-btn");
+
+      try {
+        const r = await fetch(`${BASE}/preview`);
+        if (!r.ok) throw new Error((await r.json()).detail ?? r.statusText);
+        const data = await r.json();
+
+        lastFrameB64  = data.image_b64;
+        lastFrameMime = data.mime_type ?? "image/jpeg";
+
+        img.src = `data:${lastFrameMime};base64,${lastFrameB64}`;
+        img.style.display         = "block";
+        placeholder.style.display = "none";
+        tsEl.textContent          = new Date().toLocaleTimeString();
+        tsEl.style.display        = "inline";
+        classifyBtn.disabled      = false;
+      } catch (err) {
+        placeholder.textContent   = `Camera unavailable: ${err.message}`;
+        placeholder.style.display = "block";
+        img.style.display         = "none";
+        classifyBtn.disabled      = true;
+      }
+
+      if (camRunning) setTimeout(fetchPreview, 1000);
+    }
+
+    fetchPreview();
+
+    // "Classify this frame" — run inference on the current preview image
+    document.getElementById("classify-cam-btn").addEventListener("click", async () => {
+      if (!lastFrameB64) return;
+      const btn = document.getElementById("classify-cam-btn");
+      btn.disabled = true;
+      btn.textContent = "Classifying…";
+
+      // Mirror the preview into the upload drop-zone so the user sees context
+      const inline = document.getElementById("infer-preview");
+      const hint   = document.getElementById("drop-hint");
+      inline.src = `data:${lastFrameMime};base64,${lastFrameB64}`;
+      inline.style.display = "block";
+      hint.style.display   = "none";
+
+      try {
+        const r = await fetch(`${BASE}/capture`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
+        });
+        if (!r.ok) { const e = await r.json(); throw new Error(e.detail ?? r.statusText); }
+        const data = await r.json();
+
+        lastMatches = data.matches ?? [];
+        renderMatches(lastMatches);
+        document.getElementById("results-card").style.display = "block";
+        document.getElementById("shopify-card").style.display =
+          lastMatches.length ? "block" : "none";
+        if (data.latency_ms != null)
+          toast(`${lastMatches.length} match(es) · ${data.latency_ms} ms`);
+      } catch (err) {
+        toast(`Classify failed: ${err.message}`, "err");
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Classify this frame";
+      }
+    });
+
     // ── Classify ───────────────────────────────────────────────────────────
-    let lastMatches = [];
+    let lastMatches       = [];
+    let capturedTrainB64  = null;
+    let capturedTrainMime = "image/jpeg";
+
+    // ── Capture for Train ────────────────────────────────────────────────
+    document.getElementById("train-capture-btn").addEventListener("click", async () => {
+      const btn = document.getElementById("train-capture-btn");
+      btn.disabled = true;
+      btn.textContent = "Capturing…";
+
+      try {
+        const r = await fetch(`${BASE}/capture`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
+        });
+        if (!r.ok) { const e = await r.json(); throw new Error(e.detail ?? r.statusText); }
+        const data = await r.json();
+
+        capturedTrainB64  = data.image_b64;
+        capturedTrainMime = data.mime_type ?? "image/jpeg";
+
+        // Show in preview
+        const preview = document.getElementById("train-preview");
+        const hint    = document.getElementById("train-hint");
+        preview.src = `data:${capturedTrainMime};base64,${capturedTrainB64}`;
+        preview.style.display = "block";
+        hint.style.display    = "none";
+        // Clear any manually selected file so capturedTrainB64 takes precedence
+        document.getElementById("train-file").value = "";
+        toast("Frame captured ✓");
+      } catch (err) {
+        toast(`Capture failed: ${err.message}`, "err");
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "📷 Capture from camera";
+      }
+    });
 
     document.getElementById("infer-btn").addEventListener("click", async () => {
       const fileInput = document.getElementById("infer-file");
@@ -488,8 +789,8 @@
         <div class="match-item">
           <span class="match-rank">${i + 1}</span>
           <div class="match-info">
-            <div class="match-name">${esc(m.name || m.bead_id)}</div>
-            <div class="match-id">${esc(m.bead_id)}</div>
+            <div class="match-name">${esc(m.name || m.sku || m.bead_id)}</div>
+            <div class="match-id">${esc(m.sku ?? m.bead_id)}</div>
           </div>
           <div class="match-bar-wrap">
             <div class="match-bar-bg">
@@ -516,7 +817,7 @@
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             product_id: productId,
-            bead_ids: lastMatches.map(m => m.bead_id),
+            bead_ids: lastMatches.map(m => m.sku ?? m.bead_id),
           }),
         });
         if (!r.ok) { const e = await r.json(); throw new Error(e.detail ?? r.statusText); }
@@ -533,55 +834,73 @@
 
     // ── Train ──────────────────────────────────────────────────────────────
     document.getElementById("train-btn").addEventListener("click", async () => {
-      const beadId = document.getElementById("t-bead-id").value.trim();
-      const name   = document.getElementById("t-name").value.trim();
-      const file   = document.getElementById("train-file").files[0];
+      const sku  = document.getElementById("t-sku").value.trim();
+      const name = document.getElementById("t-name").value.trim();
+      const file = document.getElementById("train-file").files[0];
 
-      if (!beadId) { toast("Bead ID is required", "err"); return; }
-      if (!name)   { toast("Name is required",    "err"); return; }
-      if (!file)   { toast("Reference image is required", "err"); return; }
+      if (!sku)  { toast("SKU is required",  "err"); return; }
+      if (!name) { toast("Name is required", "err"); return; }
+      if (!file && !capturedTrainB64) { toast("Reference image is required", "err"); return; }
 
       const btn = document.getElementById("train-btn");
       btn.disabled = true;
       btn.textContent = "Saving…";
 
       try {
-        const b64 = await fileToB64(file);
+        const b64      = file ? await fileToB64(file) : capturedTrainB64;
+        const mimeType = file ? (file.type || "image/jpeg") : capturedTrainMime;
+
+        const costRaw   = document.getElementById("t-cost").value.trim();
+        const sizeRaw   = document.getElementById("t-size-mm").value.trim();
+
         const payload = {
-          bead_id:   beadId,
+          sku,
           name,
-          color:     document.getElementById("t-color").value.trim(),
-          finish:    document.getElementById("t-finish").value.trim(),
-          shape:     document.getElementById("t-shape").value.trim(),
+          source:            document.getElementById("t-source").value.trim() || null,
+          cost:              costRaw   ? parseFloat(costRaw)  : null,
+          material_category: document.getElementById("t-material-category").value || null,
+          material:          document.getElementById("t-material").value.trim() || null,
+          color:             document.getElementById("t-color").value.trim() || null,
+          color_family:      document.getElementById("t-color-family").value || null,
+          shape:             document.getElementById("t-shape").value || null,
+          size_mm:           sizeRaw   ? parseFloat(sizeRaw)  : null,
+          finish:            document.getElementById("t-finish").value || null,
+          hole_type:         document.getElementById("t-hole-type").value || null,
           tags:              document.getElementById("t-tags").value.split(",").map(s => s.trim()).filter(Boolean),
           focal_bead:        document.getElementById("t-focal-bead").checked,
+          focal_subject:     document.getElementById("t-focal-subject").value.trim() || null,
           is_3d:             document.getElementById("t-is-3d").checked,
-          focal_description: document.getElementById("t-focal-desc").value.trim(),
+          focal_description: document.getElementById("t-focal-desc").value.trim() || null,
           image_b64:         b64,
-          mime_type:         file.type || "image/jpeg",
+          mime_type:         mimeType,
         };
 
-        const r = await fetch(`${BASE}/train`, {
+        const r = await fetch(`${BASE}/add-bead`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
         if (!r.ok) { const e = await r.json(); throw new Error(e.detail ?? r.statusText); }
 
-        toast(`Bead '${beadId}' saved to data lake ✓`);
-        // Reset form
-        ["t-bead-id","t-name","t-color","t-finish","t-shape","t-tags","t-focal-desc"].forEach(id => {
-          document.getElementById(id).value = "";
-        });
+        toast(`Bead '${sku}' saved to data lake ✓`);
+        // Reset text / number inputs
+        ["t-sku","t-name","t-source","t-material","t-color",
+         "t-size-mm","t-cost","t-tags","t-focal-subject","t-focal-desc"
+        ].forEach(id => { document.getElementById(id).value = ""; });
+        // Reset selects
+        ["t-material-category","t-color-family","t-shape","t-finish","t-hole-type"
+        ].forEach(id => { document.getElementById(id).value = ""; });
         document.getElementById("t-focal-bead").checked = false;
         document.getElementById("t-is-3d").checked = false;
         document.getElementById("focal-extra-fields").style.display = "none";
         document.getElementById("train-file").value = "";
         document.getElementById("train-preview").style.display = "none";
         document.getElementById("train-hint").style.display    = "block";
+        capturedTrainB64  = null;
+        capturedTrainMime = "image/jpeg";
         checkStatus();
       } catch(err) {
-        toast(`Train error: ${err.message}`, "err");
+        toast(`Save error: ${err.message}`, "err");
       } finally {
         btn.disabled = false;
         btn.textContent = "Save to data lake";
@@ -614,27 +933,35 @@
         <table>
           <thead>
             <tr>
-              <th>ID</th><th>Name</th><th>Attrs</th><th>Refs</th><th></th>
+              <th>SKU</th><th>Name</th><th>Attrs</th><th>Refs</th><th></th>
             </tr>
           </thead>
           <tbody>
-            ${beads.map(b => `
+            ${beads.map(b => {
+              const id       = b.sku ?? b.bead_id ?? "";
+              const refCount = b.angle_count ?? (b.angles ?? b.embeddings ?? []).length;
+              return `
               <tr>
-                <td><code style="font-size:0.78rem">${esc(b.bead_id)}</code></td>
+                <td><code style="font-size:0.78rem">${esc(id)}</code></td>
                 <td>${esc(b.name)}</td>
                 <td>
-                  ${b.color      ? `<span class="pill">${esc(b.color)}</span>`  : ""}
-                  ${b.finish     ? `<span class="pill">${esc(b.finish)}</span>` : ""}
-                  ${b.shape      ? `<span class="pill">${esc(b.shape)}</span>`  : ""}
-                  ${b.focal_bead ? `<span class="pill" style="border-color:#7c5af0;color:#a78bfa" title="${esc(b.focal_description || '')}">focal</span>` : ""}
-                  ${b.focal_bead && b.is_3d ? `<span class="pill" style="border-color:#5a8af0;color:#93c5fd">3D</span>` : ""}
+                  ${b.material_category ? `<span class="pill">${esc(b.material_category)}</span>` : ""}
+                  ${b.shape             ? `<span class="pill">${esc(b.shape)}</span>`             : ""}
+                  ${b.color_family      ? `<span class="pill">${esc(b.color_family)}</span>`      : (b.color ? `<span class="pill">${esc(b.color)}</span>` : "")}
+                  ${b.size_mm != null   ? `<span class="pill">${esc(b.size_mm)}&thinsp;mm</span>` : ""}
+                  ${b.finish            ? `<span class="pill">${esc(b.finish)}</span>`            : ""}
+                  ${b.focal_bead        ? `<span class="pill" style="border-color:#7c5af0;color:#a78bfa"
+                      title="${esc(b.focal_description || '')}">${b.focal_subject ? esc(b.focal_subject) : "focal"}</span>` : ""}
+                  ${b.focal_bead && b.is_3d  ? `<span class="pill" style="border-color:#5a8af0;color:#93c5fd">3-D</span>` : ""}
+                  ${b.focal_bead && b.is_3d === false ? `<span class="pill" style="border-color:#5aa08a;color:#6ee7b7">2-D</span>` : ""}
                 </td>
-                <td class="ref-count">${(b.embeddings ?? []).length} img${(b.embeddings ?? []).length === 1 ? "" : "s"}</td>
+                <td class="ref-count">${refCount} img${refCount === 1 ? "" : "s"}</td>
                 <td>
                   <button class="btn btn-danger" style="font-size:0.78rem;padding:0.3rem 0.6rem"
-                    onclick="deleteBead('${esc(b.bead_id)}', this)">Delete</button>
+                    onclick="deleteBead('${esc(id)}', this)">Delete</button>
                 </td>
-              </tr>`).join("")}
+              </tr>`;
+            }).join("")}
           </tbody>
         </table>`;
     }
