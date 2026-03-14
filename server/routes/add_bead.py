@@ -7,24 +7,48 @@ Ingest one bead angle (a single image + metadata) into the embedding store.
 JSON mode  — Content-Type: application/json
 -----------
 {
-    "name":       "Green Silicone 10mm Sphere",
-    "sku":        "GS-10-SPH",
-    "image_b64":  "<base64>",          # mutually exclusive with image_path
-    "image_path": "/tmp/capture.jpg",  # file already on disk (e.g. from /capture)
-    "mime_type":  "image/jpeg",        # optional, default image/jpeg
-    "source":     "Temu",              # vendor / origin
-    "cost":       3.49                 # price paid for this bead batch
+    "name":              "Green Silicone 10mm Hexagon",
+    "sku":               "GS-10-HEX",
+    "image_b64":         "<base64>",          # mutually exclusive with image_path
+    "image_path":        "/tmp/capture.jpg",  # file already on disk (e.g. from /capture)
+    "mime_type":         "image/jpeg",        # optional, default image/jpeg
+    "source":            "Temu",              # vendor / origin
+    "cost":              3.49,                # price paid for this bead batch
+    # Ontology (all optional)
+    "material_category": "silicone",          # glass | silicone | acrylic | metal | ceramic | wood | gemstone | organic | resin | rhinestone | fabric | other
+    "material":          "silicone",          # specific sub-type, e.g. "czech glass", "sterling silver"
+    "color":             "dusty rose",        # primary colour name
+    "color_family":      "pink",              # red | orange | yellow | green | blue | purple | pink | brown | white | black | gray | gold | silver | multicolor
+    "shape":             "hexagon",           # round | oval | tube | flat | bicone | hexagon | rondelle | faceted | drop | cube | heart | star | letter | other
+    "size_mm":           10.0,                # nominal diameter in millimetres
+    "finish":            "matte",             # glossy | matte | transparent | frosted | metallic | iridescent | pearlized | crackle | painted | etched | glow | uv-reactive | other
+    "hole_type":         "center-drilled",   # center-drilled | large-hole | top-drilled | side-drilled
+    "focal_bead":        false,               # true if this bead is a focal (central design element)
+    "is_3d":             false,               # true if focal bead is a 3-D figurine
+    "focal_description": null,
+    "tags":              ["silicone", "hexagon"]
 }
 
 Multipart mode  — POST /add-bead/upload
 --------------
-  name        text
-  sku         text
-  source      text   (default: "Unknown")
-  cost        float  (default: 0.0)
-  mime_type   text   (optional)
-  image       file   mutually exclusive with image_path
-  image_path  text   absolute path on disk (mutually exclusive with image)
+  name               text             (required)
+  sku                text             (required)
+  source             text             (default: "Unknown")
+  cost               float            (default: 0.0)
+  mime_type          text             (optional)
+  image              file             mutually exclusive with image_path
+  image_path         text             absolute path on disk (mutually exclusive with image)
+  material_category  text             (optional)
+  material           text             (optional)
+  color              text             (optional)
+  color_family       text             (optional)
+  shape              text             (optional)
+  size_mm            float            (optional)
+  finish             text             (optional)
+  hole_type          text             (optional)
+  focal_bead         bool             (optional)
+  is_3d              bool             (optional)
+  focal_description  text             (optional)
 """
 
 from __future__ import annotations
@@ -62,13 +86,26 @@ def _embed(raw: bytes) -> list[float]:
 # ---------------------------------------------------------------------------
 
 class AddBeadRequest(BaseModel):
-    name:       str        = Field(..., description="Human-readable bead name")
-    sku:        str        = Field(..., description="Unique business key, e.g. GS-10-SPH")
-    image_b64:  str | None = Field(None, description="Base64-encoded image")
-    image_path: str | None = Field(None, description="Absolute path to an image on disk")
-    mime_type:  str        = Field("image/jpeg", description="MIME type of the image")
-    source:     str        = Field("Unknown",    description="Vendor/origin, e.g. Temu, Amazon")
-    cost:       float      = Field(0.0, ge=0.0,  description="Price paid for this batch")
+    name:              str              = Field(..., description="Human-readable bead name")
+    sku:               str              = Field(..., description="Unique business key, e.g. GS-10-SPH")
+    image_b64:         str | None       = Field(None, description="Base64-encoded image")
+    image_path:        str | None       = Field(None, description="Absolute path to an image on disk")
+    mime_type:         str              = Field("image/jpeg", description="MIME type of the image")
+    source:            str              = Field("Unknown",    description="Vendor/origin, e.g. Temu, Amazon")
+    cost:              float            = Field(0.0, ge=0.0,  description="Price paid for this batch")
+    # Ontology fields (all optional)
+    material_category: str | None       = Field(None, description="glass | silicone | acrylic | metal | ceramic | wood | gemstone | organic | resin | rhinestone | fabric | other")
+    material:          str | None       = Field(None, description="Specific sub-type, e.g. 'czech glass', 'sterling silver', 'rose quartz'")
+    color:             str | None       = Field(None, description="Primary colour name, e.g. 'dusty rose', 'cobalt blue'")
+    color_family:      str | None       = Field(None, description="Normalised colour group: red | orange | yellow | green | blue | purple | pink | brown | white | black | gray | gold | silver | multicolor")
+    shape:             str | None       = Field(None, description="Bead shape: round | oval | tube | flat | bicone | hexagon | rondelle | faceted | drop | cube | heart | star | letter | other")
+    size_mm:           float | None     = Field(None, ge=0.0, description="Nominal diameter in millimetres")
+    finish:            str | None       = Field(None, description="Surface finish: glossy | matte | transparent | frosted | metallic | iridescent | pearlized | crackle | painted | etched | glow | uv-reactive | other")
+    hole_type:         str | None       = Field(None, description="Hole construction: center-drilled | large-hole | top-drilled | side-drilled")
+    focal_bead:        bool | None      = Field(None, description="True if this is a focal bead (central design element)")
+    is_3d:             bool | None      = Field(None, description="True if the focal bead is a 3-D figurine vs flat printed")
+    focal_description: str | None       = Field(None, description="Description specific to this focal bead")
+    tags:              list[str] | None = Field(None, description="Arbitrary extra tags for filtering")
 
 
 # ---------------------------------------------------------------------------
@@ -83,6 +120,19 @@ async def _ingest(
     mime_type: str,
     source: str,
     cost: float,
+    *,
+    material_category: str | None = None,
+    material: str | None = None,
+    color: str | None = None,
+    color_family: str | None = None,
+    shape: str | None = None,
+    size_mm: float | None = None,
+    finish: str | None = None,
+    hole_type: str | None = None,
+    focal_bead: bool | None = None,
+    is_3d: bool | None = None,
+    focal_description: str | None = None,
+    tags: list[str] | None = None,
 ) -> dict:
     db, cfg = _deps()
 
@@ -102,6 +152,18 @@ async def _ingest(
             embedding=embedding,
             source=source,
             cost=cost,
+            material_category=material_category,
+            material=material,
+            color=color,
+            color_family=color_family,
+            shape=shape,
+            size_mm=size_mm,
+            finish=finish,
+            hole_type=hole_type,
+            focal_bead=focal_bead,
+            is_3d=is_3d,
+            focal_description=focal_description,
+            tags=tags,
         )
     except Exception as exc:
         logger.exception("DB write failed")
@@ -172,6 +234,18 @@ async def add_bead_json(req: AddBeadRequest):
         mime_type=req.mime_type,
         source=req.source,
         cost=req.cost,
+        material_category=req.material_category,
+        material=req.material,
+        color=req.color,
+        color_family=req.color_family,
+        shape=req.shape,
+        size_mm=req.size_mm,
+        finish=req.finish,
+        hole_type=req.hole_type,
+        focal_bead=req.focal_bead,
+        is_3d=req.is_3d,
+        focal_description=req.focal_description,
+        tags=req.tags,
     )
 
 
@@ -181,13 +255,24 @@ async def add_bead_json(req: AddBeadRequest):
 
 @router.post("/upload", status_code=status.HTTP_201_CREATED)
 async def add_bead_upload(
-    name:       str            = Form(...),
-    sku:        str            = Form(...),
-    source:     str            = Form("Unknown"),
-    cost:       float          = Form(0.0),
-    mime_type:  str            = Form("image/jpeg"),
-    image_path: Optional[str]  = Form(None),
-    image:      Optional[UploadFile] = File(None),
+    name:              str                  = Form(...),
+    sku:               str                  = Form(...),
+    source:            str                  = Form("Unknown"),
+    cost:              float                = Form(0.0),
+    mime_type:         str                  = Form("image/jpeg"),
+    image_path:        Optional[str]        = Form(None),
+    image:             Optional[UploadFile] = File(None),
+    material_category: Optional[str]        = Form(None),
+    material:          Optional[str]        = Form(None),
+    color:             Optional[str]        = Form(None),
+    color_family:      Optional[str]        = Form(None),
+    shape:             Optional[str]        = Form(None),
+    size_mm:           Optional[float]      = Form(None),
+    finish:            Optional[str]        = Form(None),
+    hole_type:         Optional[str]        = Form(None),
+    focal_bead:        Optional[bool]       = Form(None),
+    is_3d:             Optional[bool]       = Form(None),
+    focal_description: Optional[str]        = Form(None),
 ):
     """Add one bead angle via multipart/form-data."""
 
@@ -246,4 +331,15 @@ async def add_bead_upload(
         mime_type=resolved_mime,
         source=source,
         cost=cost,
+        material_category=material_category,
+        material=material,
+        color=color,
+        color_family=color_family,
+        shape=shape,
+        size_mm=size_mm,
+        finish=finish,
+        hole_type=hole_type,
+        focal_bead=focal_bead,
+        is_3d=is_3d,
+        focal_description=focal_description,
     )

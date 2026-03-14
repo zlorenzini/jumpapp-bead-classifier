@@ -126,17 +126,40 @@ directories) — useful when the USB drive is mounted at a non-default path.
 
 ```json
 {
-  "name":       "Green Silicone 10mm Sphere",
-  "sku":        "GS-10-SPH",
-  "image_b64":  "<base64-encoded JPEG or PNG>",
-  "mime_type":  "image/jpeg",
-  "source":     "Temu",
-  "cost":       3.49
+  "name":              "Green Silicone 10mm Hexagon",
+  "sku":               "GS-10-HEX",
+  "image_b64":         "<base64-encoded JPEG or PNG>",
+  "mime_type":         "image/jpeg",
+  "source":            "Temu",
+  "cost":              3.49,
+  "material_category": "silicone",
+  "material":          "silicone",
+  "color":             "dusty rose",
+  "color_family":      "pink",
+  "shape":             "hexagon",
+  "size_mm":           10.0,
+  "finish":            "matte",
+  "hole_type":         "center-drilled",
+  "focal_bead":        false,
+  "tags":              ["silicone", "hexagon"]
 }
 ```
 
 `image_path` may be used instead of `image_b64` to reference a file already
-on disk (e.g. a frame saved by `/capture`).
+on disk (e.g. a frame saved by `/capture`).  All ontology fields are optional.
+
+**Ontology field values**
+
+| Field | Allowed values |
+|---|---|
+| `material_category` | `glass` \| `silicone` \| `acrylic` \| `metal` \| `ceramic` \| `wood` \| `gemstone` \| `organic` \| `resin` \| `rhinestone` \| `fabric` \| `other` |
+| `material` | free text — e.g. `"czech glass"`, `"sterling silver"`, `"rose quartz"`, `"polymer clay"` |
+| `color` | free text — e.g. `"dusty rose"`, `"cobalt blue"` |
+| `color_family` | `red` \| `orange` \| `yellow` \| `green` \| `blue` \| `purple` \| `pink` \| `brown` \| `white` \| `black` \| `gray` \| `gold` \| `silver` \| `multicolor` |
+| `shape` | `round` \| `oval` \| `tube` \| `flat` \| `bicone` \| `hexagon` \| `rondelle` \| `faceted` \| `drop` \| `cube` \| `heart` \| `star` \| `letter` \| `barrel` \| `nugget` \| `coin` \| `other` |
+| `size_mm` | positive number — nominal diameter in mm |
+| `finish` | `glossy` \| `matte` \| `transparent` \| `frosted` \| `metallic` \| `iridescent` \| `pearlized` \| `crackle` \| `painted` \| `etched` \| `glow` \| `uv-reactive` \| `other` |
+| `hole_type` | `center-drilled` \| `large-hole` \| `top-drilled` \| `side-drilled` |
 
 #### `POST /add-bead/upload` — multipart fields
 
@@ -149,6 +172,17 @@ on disk (e.g. a frame saved by `/capture`).
 | `source` | text | — default `"Unknown"` |
 | `cost` | float | — default `0.0` |
 | `mime_type` | text | — default `"image/jpeg"` |
+| `material_category` | text | — |
+| `material` | text | — |
+| `color` | text | — |
+| `color_family` | text | — |
+| `shape` | text | — |
+| `size_mm` | float | — |
+| `finish` | text | — |
+| `hole_type` | text | — |
+| `focal_bead` | bool | — |
+| `is_3d` | bool | — |
+| `focal_description` | text | — |
 
 ### Inference
 

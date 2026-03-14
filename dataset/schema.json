@@ -15,15 +15,36 @@
     },
     "color": {
       "type": "string",
-      "description": "Primary colour of the bead"
+      "description": "Primary colour name, e.g. 'dusty rose', 'cobalt blue', 'red'"
+    },
+    "color_family": {
+      "type": "string",
+      "description": "Normalised colour group for search/filtering: red | orange | yellow | green | blue | purple | pink | brown | white | black | gray | gold | silver | multicolor"
     },
     "finish": {
       "type": "string",
-      "description": "Surface finish, e.g. glossy, matte, transparent, metallic"
+      "description": "Surface finish: glossy | matte | transparent | frosted | metallic | iridescent | pearlized | crackle | painted | etched | glow | uv-reactive | other"
     },
     "shape": {
       "type": "string",
-      "description": "Bead shape, e.g. round, faceted, tube, flat, bicone"
+      "description": "Bead shape: round | oval | tube | flat | bicone | hexagon | rondelle | faceted | drop | cube | heart | star | letter | nugget | chip | coin | barrel | other"
+    },
+    "material_category": {
+      "type": "string",
+      "description": "High-level material class: glass | silicone | acrylic | metal | ceramic | wood | gemstone | organic | resin | rhinestone | fabric | other"
+    },
+    "material": {
+      "type": "string",
+      "description": "Specific material sub-type, e.g. 'czech glass', 'lampwork glass', 'millefiori glass', 'sterling silver', 'polymer clay', 'rose quartz', 'howlite'"
+    },
+    "size_mm": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Nominal bead diameter in millimetres, e.g. 10 for a 10mm round bead"
+    },
+    "hole_type": {
+      "type": "string",
+      "description": "Hole construction: center-drilled | large-hole | top-drilled | side-drilled"
     },
     "tags": {
       "type": "array",

@@ -63,14 +63,18 @@ class SearchResult:
 @dataclass
 class BeadMetadata:
     """Normalised bead description produced by the LLM extractor."""
-    name:     str
-    sku:      str
-    color:    str  = ""
-    shape:    str  = ""
-    material: str  = ""
-    size_mm:  str  = ""          # e.g. "10", "10x8", "10mm"
-    source:   str  = "web"
-    cost:     float | None = None
+    name:              str
+    sku:               str
+    color:             str        = ""
+    color_family:      str        = ""
+    shape:             str        = ""
+    material_category: str        = ""
+    material:          str        = ""
+    size_mm:           float | None = None
+    finish:            str        = ""
+    hole_type:         str        = ""
+    source:            str        = "web"
+    cost:              float | None = None
 
 
 @dataclass
@@ -200,13 +204,15 @@ class StubLLMExtractor(LLMExtractor):
         text = caption or alt_text or page_title or surrounding_text or query
 
         return {
-            "name":     text[:120].strip() or query,
-            "color":    _first_match(text, _COLOR_WORDS),
-            "shape":    _first_match(text, _SHAPE_WORDS),
-            "material": _first_match(text, _MATERIAL_WORDS),
-            "size_mm":  _first_size(text),
-            "source":   "web",
-            "cost":     None,
+            "name":              text[:120].strip() or query,
+            "color":             _first_match(text, _COLOR_WORDS),
+            "color_family":      _infer_color_family(text),
+            "shape":             _first_match(text, _SHAPE_WORDS),
+            "material":          _first_match(text, _MATERIAL_WORDS),
+            "material_category": _infer_material_category(text),
+            "size_mm":           _extract_size_mm(text),
+            "source":            "web",
+            "cost":              None,
         }
 
 
@@ -218,22 +224,88 @@ _COLOR_WORDS = [
     "red", "blue", "green", "yellow", "orange", "purple", "pink", "white",
     "black", "brown", "grey", "gray", "gold", "silver", "rose", "coral",
     "teal", "turquoise", "lavender", "cream", "ivory", "beige", "dusty",
-    "navy", "magenta", "cyan", "maroon", "olive", "lime",
+    "navy", "magenta", "cyan", "maroon", "olive", "lime", "cobalt",
+    "scarlet", "crimson", "burgundy", "blush", "fuchsia", "peach",
+    "salmon", "lemon", "mustard", "amber", "mint", "aqua", "indigo",
+    "violet", "plum", "tan", "khaki",
 ]
+
+# Maps colour words to their normalised family.
+_COLOR_FAMILY_MAP: dict[str, str] = {
+    "red": "red", "crimson": "red", "scarlet": "red", "maroon": "red",
+    "burgundy": "red", "coral": "red",
+    "pink": "pink", "blush": "pink", "rose": "pink", "fuchsia": "pink",
+    "magenta": "pink", "dusty rose": "pink",
+    "orange": "orange", "peach": "orange", "salmon": "orange",
+    "yellow": "yellow", "lemon": "yellow", "mustard": "yellow", "amber": "yellow",
+    "green": "green", "lime": "green", "olive": "green", "mint": "green",
+    "teal": "green",
+    "blue": "blue", "navy": "blue", "cobalt": "blue", "turquoise": "blue",
+    "aqua": "blue", "cyan": "blue",
+    "purple": "purple", "lavender": "purple", "violet": "purple",
+    "plum": "purple", "indigo": "purple",
+    "brown": "brown", "tan": "brown", "beige": "brown", "khaki": "brown",
+    "cream": "white", "ivory": "white", "white": "white",
+    "black": "black", "ebony": "black",
+    "gray": "gray", "grey": "gray",
+    "silver": "silver",
+    "gold": "gold", "brass": "gold",
+    "multicolor": "multicolor", "multi": "multicolor", "rainbow": "multicolor",
+}
 
 _SHAPE_WORDS = [
     "round", "sphere", "ball", "oval", "faceted", "bicone", "tube", "cylinder",
     "flat", "disc", "disk", "square", "cube", "hexagon", "octagon", "star",
     "heart", "teardrop", "drop", "nugget", "chip", "coin", "rondelle",
-    "seed", "bugle", "barrel",
+    "seed", "bugle", "barrel", "letter", "abacus", "spacer",
 ]
 
 _MATERIAL_WORDS = [
     "glass", "crystal", "acrylic", "plastic", "silicone", "wood", "wooden",
     "metal", "brass", "copper", "silver", "gold", "gemstone", "stone",
     "ceramic", "clay", "resin", "pearl", "shell", "turquoise", "jade",
-    "lava", "howlite", "jasper", "agate",
+    "lava", "howlite", "jasper", "agate", "quartz", "obsidian", "garnet",
+    "amethyst", "malachite", "lapis", "morganite", "moonstone", "zirconia",
+    "rhinestone", "fabric", "lampwork", "millefiori", "czech",
 ]
+
+# Maps material words to their high-level category.
+_MATERIAL_CATEGORY_MAP: dict[str, str] = {
+    # glass
+    "glass": "glass", "crystal": "glass", "czech": "glass",
+    "lampwork": "glass", "millefiori": "glass", "seed bead": "glass",
+    "delica": "glass",
+    # silicone
+    "silicone": "silicone",
+    # acrylic / plastic
+    "acrylic": "acrylic", "plastic": "acrylic", "pony": "acrylic",
+    "bubblegum": "acrylic", "ccb": "acrylic",
+    # metal
+    "metal": "metal", "brass": "metal", "copper": "metal",
+    "silver": "metal", "gold": "metal", "stainless": "metal",
+    "sterling": "metal", "zinc": "metal", "alloy": "metal",
+    # ceramic / clay
+    "ceramic": "ceramic", "clay": "ceramic", "polymer": "ceramic",
+    "porcelain": "ceramic",
+    # wood
+    "wood": "wood", "wooden": "wood", "bamboo": "wood",
+    # gemstone / stone
+    "gemstone": "gemstone", "stone": "gemstone", "quartz": "gemstone",
+    "agate": "gemstone", "jade": "gemstone", "turquoise": "gemstone",
+    "jasper": "gemstone", "obsidian": "gemstone", "garnet": "gemstone",
+    "amethyst": "gemstone", "malachite": "gemstone", "lapis": "gemstone",
+    "howlite": "gemstone", "lava": "gemstone", "moonstone": "gemstone",
+    "morganite": "gemstone", "tiger eye": "gemstone",
+    # organic
+    "shell": "organic", "bone": "organic", "horn": "organic",
+    "amber": "organic", "pearl": "organic", "coral": "organic",
+    # resin
+    "resin": "resin",
+    # rhinestone
+    "rhinestone": "rhinestone", "zirconia": "rhinestone",
+    # fabric
+    "fabric": "fabric", "cloth": "fabric",
+}
 
 _SIZE_RE = re.compile(r"(\d+(?:\.\d+)?)\s*(?:x\s*\d+(?:\.\d+)?\s*)?mm", re.IGNORECASE)
 
@@ -246,9 +318,35 @@ def _first_match(text: str, words: list[str]) -> str:
     return ""
 
 
-def _first_size(text: str) -> str:
+def _extract_size_mm(text: str) -> float | None:
+    """Return the first millimetre measurement found in text, or None."""
     m = _SIZE_RE.search(text)
-    return m.group(0).strip() if m else ""
+    if not m:
+        return None
+    try:
+        return float(m.group(1))
+    except ValueError:
+        return None
+
+
+def _infer_color_family(text: str) -> str:
+    """Return the normalised colour family for the first colour word found."""
+    tl = text.lower()
+    # Check multi-word entries first (e.g. "dusty rose").
+    for phrase, family in _COLOR_FAMILY_MAP.items():
+        if phrase in tl:
+            return family
+    return ""
+
+
+def _infer_material_category(text: str) -> str:
+    """Return the material category for the first material keyword found."""
+    tl = text.lower()
+    # Check multi-word entries first (e.g. "tiger eye").
+    for keyword, category in _MATERIAL_CATEGORY_MAP.items():
+        if keyword in tl:
+            return category
+    return ""
 
 
 def _slugify(text: str) -> str:
@@ -264,15 +362,40 @@ def normalize_metadata(raw: dict[str, Any], query: str, source_domain: str) -> B
     Merge raw extractor output with sensible defaults.
 
     ``name`` and ``sku`` are generated from the query if the extractor
-    did not produce them.
+    did not produce them.  Ontology fields (color_family, material_category)
+    are inferred from other text if not explicitly returned by the extractor.
     """
-    name     = (raw.get("name") or "").strip() or query
-    sku_hint = (raw.get("sku") or "").strip() or _slugify(name)
-    color    = (raw.get("color") or "").strip()
-    shape    = (raw.get("shape") or "").strip()
-    material = (raw.get("material") or "").strip()
-    size_mm  = (raw.get("size_mm") or "").strip()
-    source   = (raw.get("source") or source_domain or "web").strip()
+    name              = (raw.get("name") or "").strip() or query
+    sku_hint          = (raw.get("sku") or "").strip() or _slugify(name)
+    color             = (raw.get("color") or "").strip()
+    color_family      = (raw.get("color_family") or "").strip()
+    shape             = (raw.get("shape") or "").strip()
+    material          = (raw.get("material") or "").strip()
+    material_category = (raw.get("material_category") or "").strip()
+    finish            = (raw.get("finish") or "").strip()
+    hole_type         = (raw.get("hole_type") or "").strip()
+    source            = (raw.get("source") or source_domain or "web").strip()
+
+    # size_mm: accept numeric or parse from string
+    raw_size = raw.get("size_mm")
+    size_mm: float | None = None
+    if isinstance(raw_size, (int, float)):
+        size_mm = float(raw_size)
+    elif isinstance(raw_size, str) and raw_size.strip():
+        m = _SIZE_RE.search(raw_size)
+        if m:
+            try:
+                size_mm = float(m.group(1))
+            except ValueError:
+                pass
+
+    # Infer color_family from color if not already set
+    if not color_family and color:
+        color_family = _COLOR_FAMILY_MAP.get(color.lower(), "")
+
+    # Infer material_category from material if not already set
+    if not material_category and material:
+        material_category = _MATERIAL_CATEGORY_MAP.get(material.lower(), "")
 
     # Cost: only accept a numeric value
     raw_cost = raw.get("cost")
@@ -285,9 +408,13 @@ def normalize_metadata(raw: dict[str, Any], query: str, source_domain: str) -> B
         name=name,
         sku=sku_hint,
         color=color,
+        color_family=color_family,
         shape=shape,
+        material_category=material_category,
         material=material,
         size_mm=size_mm,
+        finish=finish,
+        hole_type=hole_type,
         source=source,
         cost=cost,
     )
@@ -429,6 +556,14 @@ async def acquire_beads(
                     mime_type=mime_type,
                     source=meta.source,
                     cost=meta.cost if meta.cost is not None else 0.0,
+                    material_category=meta.material_category or None,
+                    material=meta.material or None,
+                    color=meta.color or None,
+                    color_family=meta.color_family or None,
+                    shape=meta.shape or None,
+                    size_mm=meta.size_mm,
+                    finish=meta.finish or None,
+                    hole_type=meta.hole_type or None,
                 )
 
                 bead      = result_dict.get("bead", {})
