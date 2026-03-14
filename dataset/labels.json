@@ -37,5 +37,31 @@
     "size_mm": 8.0,
     "hole_type": "center-drilled",
     "tags": ["metal", "spacer", "gold", "brass"]
+  },
+  {
+    "bead_id": "focal-stitch-3d-001",
+    "name": "Stitch Christmas Focal Bead",
+    "material_category": "silicone",
+    "material": "silicone",
+    "shape": "round",
+    "size_mm": 28.0,
+    "focal_bead": true,
+    "focal_subject": "Stitch",
+    "is_3d": true,
+    "focal_description": "Blue alien wearing a Santa hat, seated pose, painted details",
+    "tags": ["silicone", "focal", "3d", "character", "christmas"]
+  },
+  {
+    "bead_id": "focal-highland-cow-2d-001",
+    "name": "Highland Cow 2D Focal Bead",
+    "material_category": "silicone",
+    "material": "silicone",
+    "shape": "round",
+    "size_mm": 22.0,
+    "focal_bead": true,
+    "focal_subject": "Highland Cow",
+    "is_3d": false,
+    "focal_description": "Fluffy Highland cow face printed on both sides, ~7mm thick flat disc",
+    "tags": ["silicone", "focal", "2d", "character", "animal"]
   }
 ]

@@ -23,9 +23,10 @@ JSON mode  — Content-Type: application/json
     "size_mm":           10.0,                # nominal diameter in millimetres
     "finish":            "matte",             # glossy | matte | transparent | frosted | metallic | iridescent | pearlized | crackle | painted | etched | glow | uv-reactive | other
     "hole_type":         "center-drilled",   # center-drilled | large-hole | top-drilled | side-drilled
-    "focal_bead":        false,               # true if this bead is a focal (central design element)
-    "is_3d":             false,               # true if focal bead is a 3-D figurine
-    "focal_description": null,
+    "focal_bead":        false,               # true if this is a focal bead (character, animal, or saying)
+    "focal_subject":     "Stitch",            # short name of the character or saying
+    "is_3d":             true,               # true = 3-D figurine; false = flat 2-D bead ~6-8mm thick
+    "focal_description": "Blue alien wearing a Santa hat, seated, painted details",
     "tags":              ["silicone", "hexagon"]
 }
 
@@ -47,8 +48,9 @@ Multipart mode  — POST /add-bead/upload
   finish             text             (optional)
   hole_type          text             (optional)
   focal_bead         bool             (optional)
+  focal_subject      text             (optional — character/saying name)
   is_3d              bool             (optional)
-  focal_description  text             (optional)
+  focal_description  text             (optional — detailed description)
 """
 
 from __future__ import annotations
@@ -102,9 +104,10 @@ class AddBeadRequest(BaseModel):
     size_mm:           float | None     = Field(None, ge=0.0, description="Nominal diameter in millimetres")
     finish:            str | None       = Field(None, description="Surface finish: glossy | matte | transparent | frosted | metallic | iridescent | pearlized | crackle | painted | etched | glow | uv-reactive | other")
     hole_type:         str | None       = Field(None, description="Hole construction: center-drilled | large-hole | top-drilled | side-drilled")
-    focal_bead:        bool | None      = Field(None, description="True if this is a focal bead (central design element)")
-    is_3d:             bool | None      = Field(None, description="True if the focal bead is a 3-D figurine vs flat printed")
-    focal_description: str | None       = Field(None, description="Description specific to this focal bead")
+    focal_bead:        bool | None      = Field(None, description="True if this is a focal bead — the central decorative character, animal, or saying bead")
+    focal_subject:     str | None       = Field(None, description="Short name of the character or saying depicted, e.g. 'Stitch', 'Highland Cow', 'Mama Bear'")
+    is_3d:             bool | None      = Field(None, description="True = 3-D sculpted figurine of the character. False (2-D) = flat bead ~6-8 mm thick with image on both faces.")
+    focal_description: str | None       = Field(None, description="Detailed description beyond subject: pose, colours, style, holiday variant, etc.")
     tags:              list[str] | None = Field(None, description="Arbitrary extra tags for filtering")
 
 
@@ -130,6 +133,7 @@ async def _ingest(
     finish: str | None = None,
     hole_type: str | None = None,
     focal_bead: bool | None = None,
+    focal_subject: str | None = None,
     is_3d: bool | None = None,
     focal_description: str | None = None,
     tags: list[str] | None = None,
@@ -161,6 +165,7 @@ async def _ingest(
             finish=finish,
             hole_type=hole_type,
             focal_bead=focal_bead,
+            focal_subject=focal_subject,
             is_3d=is_3d,
             focal_description=focal_description,
             tags=tags,
@@ -243,6 +248,7 @@ async def add_bead_json(req: AddBeadRequest):
         finish=req.finish,
         hole_type=req.hole_type,
         focal_bead=req.focal_bead,
+        focal_subject=req.focal_subject,
         is_3d=req.is_3d,
         focal_description=req.focal_description,
         tags=req.tags,
@@ -271,6 +277,7 @@ async def add_bead_upload(
     finish:            Optional[str]        = Form(None),
     hole_type:         Optional[str]        = Form(None),
     focal_bead:        Optional[bool]       = Form(None),
+    focal_subject:     Optional[str]        = Form(None),
     is_3d:             Optional[bool]       = Form(None),
     focal_description: Optional[str]        = Form(None),
 ):
@@ -340,6 +347,7 @@ async def add_bead_upload(
         finish=finish,
         hole_type=hole_type,
         focal_bead=focal_bead,
+        focal_subject=focal_subject,
         is_3d=is_3d,
         focal_description=focal_description,
     )

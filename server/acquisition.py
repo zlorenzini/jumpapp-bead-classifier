@@ -73,6 +73,10 @@ class BeadMetadata:
     size_mm:           float | None = None
     finish:            str        = ""
     hole_type:         str        = ""
+    focal_bead:        bool | None = None
+    focal_subject:     str        = ""
+    is_3d:             bool | None = None
+    focal_description: str        = ""
     source:            str        = "web"
     cost:              float | None = None
 
@@ -374,7 +378,15 @@ def normalize_metadata(raw: dict[str, Any], query: str, source_domain: str) -> B
     material_category = (raw.get("material_category") or "").strip()
     finish            = (raw.get("finish") or "").strip()
     hole_type         = (raw.get("hole_type") or "").strip()
+    focal_subject     = (raw.get("focal_subject") or "").strip()
+    focal_description = (raw.get("focal_description") or "").strip()
     source            = (raw.get("source") or source_domain or "web").strip()
+
+    # focal_bead / is_3d: only accept explicit booleans from extractor
+    raw_focal = raw.get("focal_bead")
+    focal_bead: bool | None = bool(raw_focal) if raw_focal is not None else None
+    raw_3d = raw.get("is_3d")
+    is_3d: bool | None = bool(raw_3d) if raw_3d is not None else None
 
     # size_mm: accept numeric or parse from string
     raw_size = raw.get("size_mm")
@@ -415,6 +427,10 @@ def normalize_metadata(raw: dict[str, Any], query: str, source_domain: str) -> B
         size_mm=size_mm,
         finish=finish,
         hole_type=hole_type,
+        focal_bead=focal_bead,
+        focal_subject=focal_subject,
+        is_3d=is_3d,
+        focal_description=focal_description,
         source=source,
         cost=cost,
     )
@@ -564,6 +580,10 @@ async def acquire_beads(
                     size_mm=meta.size_mm,
                     finish=meta.finish or None,
                     hole_type=meta.hole_type or None,
+                    focal_bead=meta.focal_bead,
+                    focal_subject=meta.focal_subject or None,
+                    is_3d=meta.is_3d,
+                    focal_description=meta.focal_description or None,
                 )
 
                 bead      = result_dict.get("bead", {})

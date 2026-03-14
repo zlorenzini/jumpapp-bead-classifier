@@ -16,9 +16,10 @@ Bead document schema  (v2 — angles array)
     "size_mm":    float,         # nominal diameter in mm
     "finish":     str,           # glossy | matte | transparent | frosted | metallic | …
     "hole_type":  str,           # center-drilled | large-hole | top-drilled | side-drilled
-    "focal_bead": bool,          # True if focal bead (central design element)
-    "is_3d":      bool,          # True if focal bead is a 3-D figurine
-    "focal_description": str,    # description specific to this focal bead
+    "focal_bead":        bool, # True if this is a focal bead (character, animal, or saying)
+    "focal_subject":     str,  # short name of the character/saying, e.g. "Stitch", "Mama Bear"
+    "is_3d":             bool, # True = 3-D sculpted figurine; False = flat 2-D bead ~6-8 mm thick
+    "focal_description": str,  # detailed description: pose, colours, variant, etc.
     "tags":       [str],         # arbitrary extra tags
     "angles": [                   # one entry per captured angle / image
         {
@@ -90,6 +91,8 @@ async def _ensure_indexes() -> None:
         IndexModel([("material_category", ASCENDING)]),
         IndexModel([("shape", ASCENDING)]),
         IndexModel([("color_family", ASCENDING)]),
+        IndexModel([("focal_bead", ASCENDING)]),
+        IndexModel([("focal_subject", ASCENDING)]),
         # Legacy v1 index kept for backward compat
         IndexModel([("bead_id", ASCENDING)], unique=True, sparse=True),
     ])
@@ -118,6 +121,7 @@ async def add_bead_angle(
     finish: str | None = None,
     hole_type: str | None = None,
     focal_bead: bool | None = None,
+    focal_subject: str | None = None,
     is_3d: bool | None = None,
     focal_description: str | None = None,
     tags: list[str] | None = None,
@@ -156,6 +160,7 @@ async def add_bead_angle(
             "finish":            finish,
             "hole_type":         hole_type,
             "focal_bead":        focal_bead,
+            "focal_subject":     focal_subject,
             "is_3d":             is_3d,
             "focal_description": focal_description,
             "tags":              tags,

@@ -141,7 +141,30 @@ directories) — useful when the USB drive is mounted at a non-default path.
   "finish":            "matte",
   "hole_type":         "center-drilled",
   "focal_bead":        false,
+  "focal_subject":     null,
+  "is_3d":             false,
+  "focal_description": null,
   "tags":              ["silicone", "hexagon"]
+}
+```
+
+Focal bead example:
+
+```json
+{
+  "name":              "Stitch Christmas Focal Bead",
+  "sku":               "FOC-STITCH-XMAS-3D",
+  "image_b64":         "<base64-encoded JPEG or PNG>",
+  "mime_type":         "image/jpeg",
+  "source":            "Temu",
+  "cost":              1.25,
+  "material_category": "silicone",
+  "shape":             "round",
+  "size_mm":           28.0,
+  "focal_bead":        true,
+  "focal_subject":     "Stitch",
+  "is_3d":             true,
+  "focal_description": "Blue alien wearing a Santa hat, seated pose, painted details"
 }
 ```
 
@@ -160,6 +183,10 @@ on disk (e.g. a frame saved by `/capture`).  All ontology fields are optional.
 | `size_mm` | positive number — nominal diameter in mm |
 | `finish` | `glossy` \| `matte` \| `transparent` \| `frosted` \| `metallic` \| `iridescent` \| `pearlized` \| `crackle` \| `painted` \| `etched` \| `glow` \| `uv-reactive` \| `other` |
 | `hole_type` | `center-drilled` \| `large-hole` \| `top-drilled` \| `side-drilled` |
+| `focal_bead` | `true` or `false` — is this a focal bead (character, animal, or saying) |
+| `focal_subject` | the character or saying name — e.g. `"Stitch"`, `"Highland Cow"`, `"Mama Bear"`, `"She believed she could so she did"` |
+| `is_3d` | `true` = 3-D sculpted figurine; `false` = flat 2-D bead ~6-8 mm thick with image on both faces |
+| `focal_description` | detailed description beyond subject: pose, colours, style, holiday variant |
 
 #### `POST /add-bead/upload` — multipart fields
 
@@ -181,6 +208,7 @@ on disk (e.g. a frame saved by `/capture`).  All ontology fields are optional.
 | `finish` | text | — |
 | `hole_type` | text | — |
 | `focal_bead` | bool | — |
+| `focal_subject` | text | — the character or saying name |
 | `is_3d` | bool | — |
 | `focal_description` | text | — |
 

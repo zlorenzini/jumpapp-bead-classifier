@@ -54,16 +54,20 @@
     "focal_bead": {
       "type": "boolean",
       "default": false,
-      "description": "True if this bead is a focal bead (the central design element of a piece)"
+      "description": "True if this is a focal bead — the central, decorative design element of a piece (typically a character, animal, or saying)"
+    },
+    "focal_subject": {
+      "type": "string",
+      "description": "Short name of the character or saying depicted, e.g. 'Stitch', 'Highland Cow', 'Mama Bear', 'She believed she could so she did'"
     },
     "is_3d": {
       "type": "boolean",
       "default": false,
-      "description": "True if the focal bead is a 3D figurine; false if it is a flat bead (~5\u20136 mm thick) with a character printed/moulded on both faces"
+      "description": "True if the focal bead is a fully 3-D sculpted figurine of the character. False (2-D) means a flat bead ~6\u20138 mm thick with the character image printed or moulded on both faces."
     },
     "focal_description": {
       "type": "string",
-      "description": "Description specific to this focal bead; rare but not unique across beads"
+      "description": "Detailed description of the focal bead beyond its subject — pose, colours, style details, holiday variant, etc. E.g. 'Blue alien wearing a Santa hat, seated, with painted details'"
     },
     "images": {
       "type": "array",
