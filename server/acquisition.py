@@ -221,6 +221,208 @@ class StubLLMExtractor(LLMExtractor):
 
 
 # ---------------------------------------------------------------------------
+# Concrete SearchClient implementations
+# ---------------------------------------------------------------------------
+
+class SerpAPIImageSearchClient(SearchClient):
+    """
+    Google Images search via SerpAPI (https://serpapi.com/).
+
+    Required env var::
+
+        SERPAPI_KEY=<your-key>
+
+    Free tier: 100 searches / month.  Paid plans available.
+    """
+
+    _ENDPOINT = "https://serpapi.com/search"
+
+    def __init__(self, api_key: str) -> None:
+        if not api_key:
+            raise ValueError("SerpAPIImageSearchClient: api_key must not be empty")
+        self._api_key = api_key
+
+    async def search(self, query: str, max_results: int) -> list[SearchResult]:
+        params = {
+            "engine":  "google_images",
+            "q":       query,
+            "api_key": self._api_key,
+            "num":     min(max_results, 100),
+            "safe":    "active",
+        }
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            r = await client.get(self._ENDPOINT, params=params)
+            r.raise_for_status()
+            data = r.json()
+
+        results: list[SearchResult] = []
+        for item in data.get("images_results", [])[:max_results]:
+            image_url = item.get("original", "")
+            if not image_url:
+                continue
+            results.append(SearchResult(
+                image_url=image_url,
+                page_title=item.get("title", ""),
+                alt_text=item.get("title", ""),
+                caption="",
+                surrounding_text="",
+                source_domain=item.get("source", ""),
+            ))
+        return results
+
+
+class GoogleCSESearchClient(SearchClient):
+    """
+    Google Custom Search Engine image search.
+    https://developers.google.com/custom-search/v1/overview
+
+    Required env vars::
+
+        GOOGLE_API_KEY=<API key restricted to Custom Search API>
+        GOOGLE_CX=<Programmable Search Engine ID from cse.google.com>
+
+    Free tier: 100 queries / day.  $5 per 1,000 additional queries.
+    """
+
+    _ENDPOINT = "https://www.googleapis.com/customsearch/v1"
+
+    def __init__(self, api_key: str, cx: str) -> None:
+        if not api_key or not cx:
+            raise ValueError("GoogleCSESearchClient: api_key and cx must not be empty")
+        self._api_key = api_key
+        self._cx      = cx
+
+    async def search(self, query: str, max_results: int) -> list[SearchResult]:
+        # Google CSE returns at most 10 results per page
+        params = {
+            "key":        self._api_key,
+            "cx":         self._cx,
+            "q":          query,
+            "searchType": "image",
+            "num":        min(max_results, 10),
+            "safe":       "active",
+            "fields":     "items(link,title,snippet,displayLink)",
+        }
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            r = await client.get(self._ENDPOINT, params=params)
+            r.raise_for_status()
+            data = r.json()
+
+        results: list[SearchResult] = []
+        for item in data.get("items", [])[:max_results]:
+            image_url = item.get("link", "")
+            if not image_url:
+                continue
+            results.append(SearchResult(
+                image_url=image_url,
+                page_title=item.get("title", ""),
+                alt_text=item.get("title", ""),
+                caption=item.get("snippet", ""),
+                surrounding_text="",
+                source_domain=item.get("displayLink", ""),
+            ))
+        return results
+
+
+# ---------------------------------------------------------------------------
+# Concrete LLMExtractor implementations
+# ---------------------------------------------------------------------------
+
+_OPENAI_SYSTEM_PROMPT = """\
+You are a bead product metadata extractor. Given text describing a bead product, \
+return ONLY a JSON object with these exact fields (use null or "" for unknowns):
+  name              – human-readable product name (max 120 chars)
+  sku               – url-safe slug, e.g. "silicone-10mm-hexagon-dusty-rose"
+  color             – specific colour, e.g. "dusty rose", "cobalt blue"
+  color_family      – one of: red, pink, orange, yellow, green, blue, purple,
+                      brown, white, black, gray, gold, silver, multicolor  (or "")
+  shape             – one of: round, oval, hexagon, tube, flat, bicone, rondelle,
+                      faceted, drop, cube, heart, star, letter, barrel, nugget, coin,
+                      other  (or "")
+  material          – specific sub-type, e.g. "czech glass", "sterling silver"
+  material_category – one of: silicone, glass, acrylic, metal, ceramic, wood,
+                      gemstone, organic, resin, rhinestone, fabric, other  (or "")
+  size_mm           – number or null
+  finish            – one of: glossy, matte, transparent, frosted, metallic,
+                      iridescent, pearlized, crackle, painted, etched, glow,
+                      uv-reactive, other  (or "")
+  hole_type         – one of: center-drilled, large-hole, top-drilled, side-drilled  (or "")
+  focal_bead        – true if character/animal/saying focal bead, else null
+  focal_subject     – character or subject name if focal (e.g. "Stitch")
+  is_3d             – true=sculpted 3-D figurine, false=flat 2-D image, null=unclear
+  focal_description – detailed description of focal bead if applicable\
+"""
+
+
+class OpenAIExtractor(LLMExtractor):
+    """
+    Metadata extractor backed by an OpenAI chat model.
+
+    Required env var::
+
+        OPENAI_API_KEY=sk-...
+
+    Optional::
+
+        OPENAI_MODEL=gpt-4o-mini   (default; any JSON-capable model works)
+    """
+
+    def __init__(self, api_key: str, model: str = "gpt-4o-mini") -> None:
+        if not api_key:
+            raise ValueError("OpenAIExtractor: api_key must not be empty")
+        try:
+            import openai  # noqa: PLC0415  # type: ignore[import]
+        except ImportError as exc:
+            raise ImportError(
+                "openai package is required: pip install openai>=1.0.0"
+            ) from exc
+        self._client = openai.AsyncOpenAI(api_key=api_key)
+        self._model  = model
+
+    async def extract(
+        self,
+        *,
+        page_title:       str,
+        alt_text:         str,
+        caption:          str,
+        surrounding_text: str,
+        query:            str,
+    ) -> dict[str, Any]:
+        import json as _json  # noqa: PLC0415
+
+        context_parts = [f"Search query: {query}"]
+        if page_title:       context_parts.append(f"Page title: {page_title}")
+        if alt_text:         context_parts.append(f"Alt text: {alt_text}")
+        if caption:          context_parts.append(f"Caption: {caption}")
+        if surrounding_text: context_parts.append(f"Surrounding text: {surrounding_text}")
+
+        try:
+            response = await self._client.chat.completions.create(
+                model=self._model,
+                response_format={"type": "json_object"},
+                messages=[
+                    {"role": "system", "content": _OPENAI_SYSTEM_PROMPT},
+                    {"role": "user",   "content": "\n".join(context_parts)},
+                ],
+                temperature=0.2,
+                max_tokens=512,
+            )
+            raw = response.choices[0].message.content or "{}"
+            return _json.loads(raw)
+        except Exception as exc:
+            logger.warning(
+                "OpenAI extraction failed, falling back to heuristics: %s", exc
+            )
+            return await StubLLMExtractor().extract(
+                page_title=page_title,
+                alt_text=alt_text,
+                caption=caption,
+                surrounding_text=surrounding_text,
+                query=query,
+            )
+
+
+# ---------------------------------------------------------------------------
 # Normalisation helpers
 # ---------------------------------------------------------------------------
 
@@ -519,10 +721,32 @@ async def acquire_beads(
     -------
     AcquisitionSummary with ingested, skipped, and error records.
     """
+    from config import get_settings  # noqa: PLC0415
+    settings = get_settings()
+
     if search_client is None:
-        search_client = StubSearchClient()
+        if settings.serpapi_key:
+            search_client = SerpAPIImageSearchClient(settings.serpapi_key)
+            logger.info("Acquisition: using SerpAPI search client")
+        elif settings.google_api_key and settings.google_cx:
+            search_client = GoogleCSESearchClient(settings.google_api_key, settings.google_cx)
+            logger.info("Acquisition: using Google CSE search client")
+        else:
+            search_client = StubSearchClient()
+            logger.warning(
+                "Acquisition: no search API key configured "
+                "(set SERPAPI_KEY or GOOGLE_API_KEY+GOOGLE_CX) — returning 0 results."
+            )
+
     if extractor is None:
-        extractor = StubLLMExtractor()
+        if settings.openai_api_key:
+            extractor = OpenAIExtractor(settings.openai_api_key, settings.openai_model)
+            logger.info("Acquisition: using OpenAI extractor (model=%s)", settings.openai_model)
+        else:
+            extractor = StubLLMExtractor()
+            logger.warning(
+                "Acquisition: no OPENAI_API_KEY configured — using heuristic stub extractor."
+            )
 
     summary = AcquisitionSummary()
 

@@ -25,3 +25,6 @@ python-dotenv>=1.0.0
 
 # Multipart form uploads
 python-multipart>=0.0.9
+
+# OpenAI — LLM metadata extractor for web acquisition
+openai>=1.0.0
