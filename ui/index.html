@@ -511,6 +511,42 @@
       <button class="btn btn-primary btn-full" id="train-btn">Save to data lake</button>
     </div>
 
+    <!-- ── Web acquisition card ───────────────────────────────────────── -->
+    <div class="card" style="margin-top:1.25rem">
+      <p class="card-title">Ingest from web search</p>
+      <p style="color:#888;font-size:0.85rem;margin:-0.25rem 0 1rem">
+        Describe a bead in plain text. The server will search the web for matching
+        product images, download them, and add them to the data lake automatically.
+        Requires a <strong>Search API</strong> and <strong>LLM extractor</strong>
+        to be configured in <code>acquisition.py</code>.
+      </p>
+
+      <div class="field">
+        <label>Search query</label>
+        <input type="text" id="acq-query"
+               placeholder="e.g. 10mm silicone hexagon dusty rose bead" />
+      </div>
+
+      <div class="row-2">
+        <div class="field">
+          <label>Max results <span style="color:#888">(1–50)</span></label>
+          <input type="number" id="acq-max" value="5" min="1" max="50" step="1" />
+        </div>
+        <div class="field" style="display:flex;align-items:flex-end">
+          <button class="btn btn-primary btn-full" id="acq-btn">Search &amp; ingest</button>
+        </div>
+      </div>
+
+      <div id="acq-results" style="display:none;margin-top:1rem">
+        <div id="acq-summary" style="font-size:0.85rem;color:#888;margin-bottom:0.75rem"></div>
+        <div id="acq-ingested"></div>
+        <details id="acq-skipped-wrap" style="margin-top:0.5rem;display:none">
+          <summary style="cursor:pointer;font-size:0.82rem;color:#888">Skipped / errors</summary>
+          <div id="acq-skipped" style="font-size:0.8rem;margin-top:0.5rem"></div>
+        </details>
+      </div>
+    </div>
+
   </div>
 
   <!-- ══════════════════════════════════════════════
@@ -904,6 +940,84 @@
       } finally {
         btn.disabled = false;
         btn.textContent = "Save to data lake";
+      }
+    });
+
+    // ── Web Acquire ────────────────────────────────────────────────────────
+    document.getElementById("acq-btn").addEventListener("click", async () => {
+      const query = document.getElementById("acq-query").value.trim();
+      const maxR  = parseInt(document.getElementById("acq-max").value, 10) || 5;
+      if (!query) { toast("Enter a search query", "err"); return; }
+
+      const btn = document.getElementById("acq-btn");
+      btn.disabled = true;
+      btn.textContent = "Searching…";
+
+      const resultsDiv  = document.getElementById("acq-results");
+      const summaryDiv  = document.getElementById("acq-summary");
+      const ingestedDiv = document.getElementById("acq-ingested");
+      const skippedWrap = document.getElementById("acq-skipped-wrap");
+      const skippedDiv  = document.getElementById("acq-skipped");
+
+      resultsDiv.style.display  = "none";
+      ingestedDiv.innerHTML     = "";
+      skippedDiv.innerHTML      = "";
+      skippedWrap.style.display = "none";
+
+      try {
+        const r = await fetch(`${BASE}/acquire`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query, max_results: maxR }),
+        });
+        if (!r.ok) { const e = await r.json(); throw new Error(e.detail ?? r.statusText); }
+        const data = await r.json();
+
+        const ni = data.ingested?.length ?? 0;
+        const ns = data.skipped?.length  ?? 0;
+        const ne = data.errors?.length   ?? 0;
+
+        summaryDiv.textContent =
+          `${ni} ingested · ${ns} skipped · ${ne} error${ne === 1 ? "" : "s"}`;
+
+        if (ni > 0) {
+          ingestedDiv.innerHTML = data.ingested.map(item => `
+            <div style="display:flex;align-items:center;gap:0.6rem;padding:0.45rem 0;
+                        border-bottom:1px solid var(--border)">
+              ${item.image_url
+                ? `<img src="${esc(item.image_url)}" alt="" style="width:48px;height:48px;
+                             object-fit:cover;border-radius:4px;flex-shrink:0"
+                       onerror="this.style.display='none'">`
+                : ""}
+              <div>
+                <div style="font-size:0.88rem;font-weight:500">${esc(item.name)}</div>
+                <div style="font-size:0.76rem;color:#888"><code>${esc(item.sku)}</code></div>
+              </div>
+            </div>`).join("");
+        } else {
+          ingestedDiv.innerHTML = `<p class="empty-state" style="margin:0.5rem 0">
+            No images ingested — search API may not be configured yet.</p>`;
+        }
+
+        const problems = [
+          ...(data.skipped ?? []).map(s => `<span style="color:#888">[skip]</span> ${esc(s.image_url)} — ${esc(s.reason)}`),
+          ...(data.errors  ?? []).map(e => `<span style="color:var(--error)">[error]</span> ${esc(e.image_url)} — ${esc(e.error)}`),
+        ];
+        if (problems.length) {
+          skippedDiv.innerHTML      = problems.map(p => `<div style="margin:0.2rem 0">${p}</div>`).join("");
+          skippedWrap.style.display = "block";
+        }
+
+        resultsDiv.style.display = "block";
+        if (ni > 0) {
+          toast(`${ni} bead${ni === 1 ? "" : "s"} ingested from web ✓`);
+          checkStatus();
+        }
+      } catch(err) {
+        toast(`Acquire failed: ${err.message}`, "err");
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Search & ingest";
       }
     });
 
