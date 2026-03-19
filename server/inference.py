@@ -1,16 +1,18 @@
 """
-Bead inference — trained classifier with cosine-similarity fallback.
+Bead inference — NPU → PyTorch CPU → cosine-similarity fallback.
 
 Algorithm
 ---------
-1. If a trained MobileNetV2 model exists in models_dir/bundle_id/model.pth,
-   run it to get a per-class softmax probability for every known SKU.
-2. For beads that are *not* covered by the trained classifier (added after
-   the last training run), fall back to ResNet-50 cosine similarity.
-3. Merge scores, sort descending, apply threshold, return top-K.
+1. If models_dir/bundle_id/model.dxnn exists, run it on the DX-M1 NPU via
+   dx_engine to get per-class scores for every known SKU.
+2. If model.dxnn is absent but model.pth exists, run the MobileNetV2
+   classifier on CPU via PyTorch.
+3. For beads not covered by the trained model (added after the last
+   training run), fall back to ResNet-50 cosine similarity.
+4. Merge scores, sort descending, apply threshold, return top-K.
 
-The trained model is cached in memory and reloaded automatically whenever
-the model.pth file is replaced (mtime check).  trainer.py calls
+Both the NPU engine and the PyTorch model are cached in memory and
+reloaded automatically when their files change on disk.  trainer.py calls
 evict_model_cache() after each completed training run so changes are
 picked up immediately.
 """
@@ -29,26 +31,153 @@ from embedder import cosine_similarity, embed_image_bytes
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Trained-classifier cache
+# Caches (shared lock for both NPU and PyTorch entries)
 # ---------------------------------------------------------------------------
 
-_classifier_cache: dict[str, dict[str, Any]] = {}  # model_path_str → entry
+_classifier_cache: dict[str, dict[str, Any]] = {}  # cache_key → entry
 _cache_lock = threading.Lock()
 
 
 def evict_model_cache(model_dir_str: str) -> None:
     """
-    Remove a cached classifier entry.  Called by trainer.py after a
-    completed training run so the next inference reloads from disk.
-
-    model_dir_str is the string representation of  models_dir / bundle_id.
+    Remove cached classifier entries for a bundle directory.  Called by
+    trainer.py after a completed training run so the next inference
+    reloads from disk (covers both NPU .dxnn and PyTorch .pth entries).
     """
-    cache_key = str(Path(model_dir_str) / "model.pth")
+    base = Path(model_dir_str)
+    keys_to_remove = [str(base / "model.dxnn"), str(base / "model.pth")]
     with _cache_lock:
-        removed = _classifier_cache.pop(cache_key, None)
-    if removed is not None:
-        logger.info("Evicted classifier cache for '%s'", model_dir_str)
+        removed = [k for k in keys_to_remove if _classifier_cache.pop(k, None)]
+    if removed:
+        logger.info("Evicted classifier cache for '%s' (%s)", model_dir_str, removed)
 
+
+# ---------------------------------------------------------------------------
+# NPU classifier (DX-M1 via dx_engine)
+# ---------------------------------------------------------------------------
+
+def _load_npu_classifier(
+    models_dir: Path,
+    bundle_id: str = "current",
+) -> dict[str, Any] | None:
+    """
+    Load a compiled .dxnn model for DX-M1 NPU inference.
+
+    Returns a cache entry dict, or None if no .dxnn model exists or
+    dx_engine is unavailable.  Uses mtime-based cache invalidation.
+    """
+    dxnn_path = models_dir / bundle_id / "model.dxnn"
+    meta_path = models_dir / bundle_id / "metadata.json"
+
+    if not dxnn_path.exists() or not meta_path.exists():
+        return None
+
+    cache_key = str(dxnn_path)
+    mtime     = dxnn_path.stat().st_mtime
+
+    with _cache_lock:
+        entry = _classifier_cache.get(cache_key)
+        if entry is not None and entry.get("mtime") == mtime:
+            return entry
+
+    try:
+        from dx_engine import InferenceEngine  # noqa: PLC0415
+    except ImportError:
+        logger.warning("dx_engine not importable — NPU inference unavailable")
+        return None
+
+    try:
+        meta   = json.loads(meta_path.read_text())
+        labels = meta.get("labels") or meta.get("classes") or []
+        if not labels:
+            logger.warning("NPU model metadata has no class labels at '%s'", meta_path)
+            return None
+
+        engine = InferenceEngine(str(dxnn_path))
+        input_info = engine.get_input_tensors_info()[0]  # {name, shape, dtype}
+
+        new_entry: dict[str, Any] = {
+            "engine":     engine,
+            "labels":     labels,
+            "input_info": input_info,
+            "mtime":      mtime,
+            "kind":       "npu",
+        }
+        with _cache_lock:
+            _classifier_cache[cache_key] = new_entry
+
+        logger.info(
+            "Loaded NPU classifier: %d classes, bundle '%s', input=%s %s",
+            len(labels), bundle_id, input_info["shape"], input_info["dtype"],
+        )
+        return new_entry
+
+    except Exception:
+        logger.exception("Failed to load NPU classifier from '%s'", dxnn_path)
+        return None
+
+
+def _run_npu_classifier(
+    entry: dict[str, Any],
+    image_bytes: bytes,
+) -> dict[str, float]:
+    """
+    Run DX-M1 NPU forward pass.  Returns {class_name: probability}.
+
+    Handles both NHWC uint8 (quantized) and NCHW/NHWC float32 layouts,
+    reading the expected format from the engine's input tensor info.
+    """
+    import numpy as np        # noqa: PLC0415
+    from PIL import Image     # noqa: PLC0415
+
+    engine     = entry["engine"]
+    labels     = entry["labels"]
+    input_info = entry["input_info"]
+    shape      = input_info["shape"]   # e.g. [1, 224, 224, 3] or [1, 3, 224, 224]
+    dtype      = input_info["dtype"]   # e.g. np.uint8 or np.float32
+
+    img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+
+    # Determine spatial dims from shape (NHWC or NCHW)
+    if len(shape) == 4 and shape[3] == 3:        # NHWC
+        h, w = shape[1], shape[2]
+        nhwc = True
+    else:                                          # NCHW
+        h, w = shape[2], shape[3]
+        nhwc = False
+
+    img = img.resize((w, h))
+    arr = np.array(img, dtype=np.uint8)  # [H, W, 3] uint8
+
+    if dtype == np.uint8:
+        # Quantized model: raw pixel values, NHWC
+        inp = arr[np.newaxis].astype(np.uint8)          # [1, H, W, 3]
+    else:
+        # Float model: apply ImageNet normalisation
+        arr_f = arr.astype(np.float32) / 255.0
+        mean  = np.array([0.485, 0.456, 0.406], dtype=np.float32)
+        std   = np.array([0.229, 0.224, 0.225], dtype=np.float32)
+        arr_f = (arr_f - mean) / std
+        if nhwc:
+            inp = np.ascontiguousarray(arr_f[np.newaxis])   # [1, H, W, 3]
+        else:
+            inp = np.ascontiguousarray(arr_f.transpose(2, 0, 1)[np.newaxis])  # [1,3,H,W]
+        inp = inp.astype(np.float32)
+
+    outputs = engine.run(inp)
+    logits  = outputs[0].flatten()                      # [num_classes]
+
+    # Softmax
+    logits  = logits - logits.max()
+    exp_l   = np.exp(logits)
+    probs   = exp_l / exp_l.sum()
+
+    return {cls: round(float(p), 4) for cls, p in zip(labels, probs)}
+
+
+# ---------------------------------------------------------------------------
+# PyTorch CPU classifier
+# ---------------------------------------------------------------------------
 
 def _load_classifier(
     models_dir: Path,
@@ -190,20 +319,36 @@ async def run_inference(
         logger.warning("No bead records in the data lake; returning empty results")
         return []
 
-    # ── Try trained MobileNetV2 classifier ───────────────────────────────────
+    # ── Try DX-M1 NPU classifier (model.dxnn) ───────────────────────────────
     classifier_scores: dict[str, float] = {}
     if models_dir is not None:
+        try:
+            npu_entry = _load_npu_classifier(models_dir, bundle_id)
+            if npu_entry is not None:
+                classifier_scores = _run_npu_classifier(npu_entry, image_bytes)
+                logger.info(
+                    "NPU classifier scored %d classes (bundle '%s')",
+                    len(classifier_scores), bundle_id,
+                )
+        except Exception:
+            logger.exception(
+                "NPU classifier inference failed; trying PyTorch fallback",
+            )
+            classifier_scores = {}
+
+    # ── Fall back to PyTorch CPU classifier (model.pth) ─────────────────────
+    if not classifier_scores and models_dir is not None:
         try:
             entry = _load_classifier(models_dir, bundle_id)
             if entry is not None:
                 classifier_scores = _run_classifier(entry, image_bytes)
                 logger.info(
-                    "Classifier scored %d classes (bundle '%s')",
+                    "PyTorch classifier scored %d classes (bundle '%s')",
                     len(classifier_scores), bundle_id,
                 )
         except Exception:
             logger.exception(
-                "Classifier inference failed; falling back to cosine similarity",
+                "PyTorch classifier inference failed; falling back to cosine similarity",
             )
             classifier_scores = {}
 

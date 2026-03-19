@@ -366,6 +366,52 @@ def _run(job_id: str, config: dict[str, Any]) -> None:  # noqa: PLR0912, PLR0915
         (model_dir / "metadata.json").write_text(json.dumps(metadata, indent=2))
         log(f"Saved model → {model_dir}/model.pth  (val_acc={best_acc:.4f})")
 
+        # ── Export to ONNX ───────────────────────────────────────────────
+        onnx_path = model_dir / "model.onnx"
+        try:
+            net.cpu().eval()
+            dummy = torch.zeros(1, 3, img_size, img_size)
+            torch.onnx.export(
+                net, dummy, str(onnx_path),
+                input_names=["input"],
+                output_names=["output"],
+                opset_version=17,
+            )
+            log(f"Exported ONNX → {onnx_path}")
+        except Exception as exc:
+            log(f"ONNX export failed (NPU path unavailable): {exc}")
+
+        # ── Compile to .dxnn for DX-M1 NPU ──────────────────────────────
+        if onnx_path.exists():
+            import subprocess as _sp  # noqa: PLC0415
+            dxnn_path = model_dir / "model.dxnn"
+            dx_com = (
+                shutil.which("dx-com")
+                or shutil.which("dxc")
+            )
+            if dx_com:
+                try:
+                    result_cp = _sp.run(
+                        [dx_com, str(onnx_path), "-o", str(dxnn_path)],
+                        capture_output=True, text=True, timeout=300,
+                    )
+                    if result_cp.returncode == 0:
+                        log(f"Compiled NPU model → {dxnn_path}")
+                    else:
+                        log(
+                            f"dx-com compilation failed (exit {result_cp.returncode}); "
+                            f"NPU inference unavailable until resolved.\n"
+                            f"{result_cp.stderr.strip()}"
+                        )
+                except Exception as exc:
+                    log(f"dx-com error: {exc}")
+            else:
+                log(
+                    "dx-com not found in PATH — ONNX model is ready for NPU compilation.\n"
+                    f"To compile manually:  dx-com {onnx_path} -o {dxnn_path}\n"
+                    "Once model.dxnn is present the NPU will be used automatically."
+                )
+
         # Evict cached classifier so the next inference reloads from disk
         import inference as infer_module  # noqa: PLC0415
         infer_module.evict_model_cache(str(model_dir))

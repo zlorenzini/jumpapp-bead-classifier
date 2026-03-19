@@ -1,45 +1,33 @@
 {
   "name": "jumpapp-bead-classifier",
   "version": "1.0.0",
-  "description": "Analyzes product photos to identify bead types and updates Shopify product tags via the Admin API.",
+  "description": "Portable bead classifier using ResNet-50 embeddings",
 
-  "entrypoint": "server/main.py",
-  "ui": "ui/index.html",
-
-  "capabilities": {
-    "requires": [
-      "mongodb",
-      "shopify_admin_api"
-    ]
-  },
-
-  "endpoints": {
-    "status": "/status",
-    "infer": "/infer",
-    "train": "/train",
-    "beads": "/beads",
-    "shopify_tag": "/shopify/tag"
+  "storage": {
+    "models": "models",
+    "dataset": "dataset",
+    "endpoints": "endpoints"
   },
 
   "models": {
-    "default": null,
     "embedder": "resnet50",
     "embedding_dim": 2048
   },
 
-  "dataset": {
-    "type": "datalake",
-    "labels": "dataset/labels.json"
+  "capabilities": {
+    "requires": [
+      "camera",
+      "filesystem",
+      "network"
+    ]
   },
 
-  "storage": {
-    "comment": "All paths are relative to the directory containing this jumpapp.json file.",
-    "root": ".",
-    "endpoints": "endpoints",
-    "models": "models",
-    "dataset": "dataset"
-  },
-
-  "portable": true
+  "endpoints": {
+    "add-bead": "/add-bead",
+    "train": "/train",
+    "bundles": "/bundles",
+    "infer": "/infer",
+    "capture": "/capture"
+  }
 }
 
